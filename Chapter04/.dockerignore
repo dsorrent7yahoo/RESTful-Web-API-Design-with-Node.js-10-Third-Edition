@@ -1,0 +1,10 @@
+**/node_modules
+**/dist
+**/.vite
+**/.DS_Store
+**/npm-debug.log
+**/.env
+.git
+.gitignore
+.vscode
+coherent-11-07-2022/dicom

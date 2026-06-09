@@ -1,0 +1,623 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "DynamoDB Medical Records App",
+    "version": "1.0.0",
+    "description": "REST endpoints for DynamoDB-backed medications in Chapter04/dynamo-db-backend."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4001"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Medications",
+      "description": "Medication operations backed by DynamoDB"
+    },
+    {
+      "name": "Tables",
+      "description": "DynamoDB table management"
+    },
+    {
+      "name": "Launcher",
+      "description": "Frontend launch helpers"
+    }
+  ],
+  "paths": {
+    "/launch/frontend": {
+      "get": {
+        "tags": ["Launcher"],
+        "summary": "DynamoDB Table Loader",
+        "description": "Redirects to the DynamoDB Table Loader frontend at http://localhost:5175/.",
+        "responses": {
+          "302": {
+            "description": "Redirect to frontend URL"
+          }
+        }
+      }
+    },
+    "/tables": {
+      "get": {
+        "tags": ["Tables"],
+        "summary": "List all DynamoDB tables",
+        "description": "Returns the names of all tables currently present in the DynamoDB instance.",
+        "responses": {
+          "200": {
+            "description": "Array of table names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tables": {
+                      "type": "array",
+                      "items": { "type": "string" },
+                      "example": ["medications", "patients"]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications with paging",
+        "parameters": [
+          {
+            "name": "topN",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 10
+            },
+            "description": "Optional top N rows to return. If provided, it takes precedence over limit."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 50
+            }
+          },
+          {
+            "name": "startKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "JSON-encoded DynamoDB exclusive start key"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on row id"
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on patient id"
+          },
+          {
+            "name": "medicationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on medication id (stored as code)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Medication"
+                      }
+                    },
+                    "lastEvaluatedKey": {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Create medication",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Medication"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created medication"
+          }
+        }
+      }
+    },
+    "/medications/id/{id}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Medication"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/medications/patient/{patient}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by patient",
+        "parameters": [
+          {
+            "name": "patient",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/code/{code}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by code",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/medication/{medicationId}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by medication id",
+        "parameters": [
+          {
+            "name": "medicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/patients/multiple-medications": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get patients taking more than one medication",
+        "parameters": [
+          {
+            "name": "topN",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 10
+            },
+            "description": "Optional limit for top patients by medication count"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patients with multiple medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalPatients": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PatientMedicationSummary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/{id}": {
+      "put": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Update medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Medication"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated medication"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Delete medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delete status"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/medications/upload": {
+      "post": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Upload Files to DyanmoDB Tables",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Optional DynamoDB table name. Table is auto-created if missing.",
+                    "example": "medications"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Set true to delete and recreate the target table before upload.",
+                    "example": false
+                  },
+                  "csvPath": {
+                    "type": "string",
+                    "description": "Optional absolute path to a CSV file on the backend machine. If omitted and csvContent is not provided, server default CSV file is used.",
+                    "example": "C:/Users/Dan/OneDrive/RESTful-Web-API-Design-with-Node.js-10-Third-Edition/coherent-11-07-2022/csv/medications.csv"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "description": "Optional source file name when uploading csvContent from browser.",
+                    "example": "medications-upload.csv"
+                  },
+                  "csvContent": {
+                    "type": "string",
+                    "description": "Optional raw CSV text content. Useful for browser file uploads.",
+                    "example": "START,STOP,PATIENT,PAYER,ENCOUNTER,CODE,DESCRIPTION,BASE_COST,PAYER_COVERAGE,DISPENSES,TOTALCOST,REASONCODE,REASONDESCRIPTION\\n2003-04-27T10:01:56Z,,patient-1,payer-1,enc-1,2001499,Vitamin B 12 5 MG/ML Injectable Solution,2.29,0.00,1,2.29,,"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Target DynamoDB table name.",
+                    "example": "patients"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Set true to delete and recreate the target table before upload.",
+                    "example": false
+                  },
+                  "csvFile": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "CSV file to upload from your machine."
+                  }
+                }
+              },
+              "encoding": {
+                "csvFile": {
+                  "contentType": "text/csv"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "imported": {
+                      "type": "integer"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Confirmation required when target table already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "confirm_required"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    },
+                    "requiresConfirmation": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PatientMedicationSummary": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "medicationCount": {
+            "type": "integer"
+          },
+          "medications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MedicationUsage"
+            }
+          }
+        }
+      },
+      "MedicationUsage": {
+        "type": "object",
+        "properties": {
+          "medicationId": {
+            "type": "string"
+          },
+          "medicationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      },
+      "Medication": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stop": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "patient": {
+            "type": "string"
+          },
+          "payer": {
+            "type": "string"
+          },
+          "encounter": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "baseCost": {
+            "type": "number"
+          },
+          "payerCoverage": {
+            "type": "number"
+          },
+          "dispenses": {
+            "type": "number"
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "reasonDescription": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
