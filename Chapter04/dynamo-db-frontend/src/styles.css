@@ -82,6 +82,34 @@ textarea {
   line-height: 1.6;
 }
 
+.hero-status {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+
+.status-dot.busy {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
+}
+
+.hero .progress-wrap {
+  margin-top: 10px;
+  max-width: 320px;
+}
+
 .hero-badge {
   position: relative;
   z-index: 1;
@@ -99,6 +127,13 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.12em;
   opacity: 0.85;
+}
+
+.hero-badge-url {
+  text-transform: none;
+  letter-spacing: 0;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .hero-badge strong {
@@ -133,6 +168,30 @@ textarea {
 textarea {
   resize: vertical;
   min-height: 240px;
+}
+
+.backend-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.backend-option {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  box-shadow: none;
+  border: 1px solid rgba(125, 146, 166, 0.45);
+}
+
+.backend-option:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.backend-option.active {
+  background: linear-gradient(135deg, #0f766e, #0f172a);
+  color: #ffffff;
+  border-color: transparent;
 }
 
 button {

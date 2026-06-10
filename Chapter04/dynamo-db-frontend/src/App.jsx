@@ -165,8 +165,32 @@ function chunkTableNames(tableNames, chunkSize) {
   return rows;
 }
 
+const BACKEND_PRESETS = {
+  aws: 'http://3.87.73.29:4001',
+  docker: 'http://localhost:4001',
+  standalone: 'http://localhost:4002'
+};
+
+function normalizeBaseUrl(value) {
+  return String(value || '').trim().replace(/\/$/, '');
+}
+
+function resolveBackendMode(baseUrl) {
+  const normalizedBase = normalizeBaseUrl(baseUrl);
+  const matchedEntry = Object.entries(BACKEND_PRESETS).find(([, presetUrl]) => normalizeBaseUrl(presetUrl) === normalizedBase);
+  return matchedEntry ? matchedEntry[0] : 'custom';
+}
+
+function getBackendModeLabel(mode) {
+  if (mode === 'aws') return 'AWS';
+  if (mode === 'docker') return 'Docker';
+  if (mode === 'standalone') return 'Standalone';
+  return 'Custom';
+}
+
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState('http://localhost:4001');
+  const [baseUrl, setBaseUrl] = useState(BACKEND_PRESETS.docker);
+  const [backendMode, setBackendMode] = useState('docker');
   const [selectedId, setSelectedId] = useState('getAll');
   const [medicationId, setMedicationId] = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -202,9 +226,28 @@ export default function App() {
     [dynamoTables]
   );
 
+  const normalizedBaseUrl = useMemo(() => normalizeBaseUrl(baseUrl), [baseUrl]);
+
+  const backendModeLabel = useMemo(
+    () => getBackendModeLabel(backendMode),
+    [backendMode]
+  );
+
+  function setBackendTarget(mode) {
+    const nextUrl = BACKEND_PRESETS[mode] || baseUrl;
+    setBackendMode(mode);
+    setBaseUrl(nextUrl);
+  }
+
+  function handleBaseUrlChange(event) {
+    const nextUrl = event.target.value;
+    setBaseUrl(nextUrl);
+    setBackendMode(resolveBackendMode(nextUrl));
+  }
+
   async function loadDynamoTables(currentBaseUrl) {
     try {
-      const normalizedBase = (currentBaseUrl || baseUrl).trim().replace(/\/$/, '');
+      const normalizedBase = normalizeBaseUrl(currentBaseUrl || baseUrl);
       const response = await fetch(`${normalizedBase}/tables`);
       if (!response.ok) return;
       const data = await response.json();
@@ -216,7 +259,7 @@ export default function App() {
 
   async function loadOptions(currentBaseUrl) {
     try {
-      const normalizedBase = currentBaseUrl.trim().replace(/\/$/, '');
+      const normalizedBase = normalizeBaseUrl(currentBaseUrl);
       const response = await fetch(`${normalizedBase}/medications/?limit=250`);
 
       if (!response.ok) {
@@ -284,7 +327,7 @@ export default function App() {
   }, [baseUrl]);
 
   function restartExplorer() {
-    setBaseUrl('http://localhost:4001');
+    setBackendTarget('docker');
     setSelectedId('getAll');
     setMedicationId(medicationOptions[0]?.value || '');
     setMedicationPathId(medicationOptions[0]?.value || '');
@@ -352,9 +395,8 @@ export default function App() {
   }, [selected, topN, queryId, queryPatientId, queryMedicationId]);
 
   const resolvedUrlPreview = useMemo(() => {
-    const normalizedBase = baseUrl.trim().replace(/\/$/, '');
-    return `${normalizedBase}${resolvedPath}${requestQueryString}`;
-  }, [baseUrl, resolvedPath, requestQueryString]);
+    return `${normalizedBaseUrl}${resolvedPath}${requestQueryString}`;
+  }, [normalizedBaseUrl, resolvedPath, requestQueryString]);
 
   async function runRequest(event) {  //Event is onSubmit
     event.preventDefault();
@@ -390,7 +432,7 @@ export default function App() {
       return;
     }
 
-    const normalizedBase = baseUrl.trim().replace(/\/$/, '');
+    const normalizedBase = normalizeBaseUrl(baseUrl);
     const url = normalizedBase + resolvedPath + requestQueryString;
     const options = { method: selected.method, headers: {} };
 
@@ -611,22 +653,43 @@ export default function App() {
     <main className="page">
       <section className="hero panel">
         <div>
-          <p className="eyebrow">Chapter04 DynamoDB</p>
           <h1>DynamoDB Medication API Client</h1>
           <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
+          <div className="hero-status" aria-live="polite">
+            <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
+            <span>{isLoading ? 'Request in progress...' : 'Ready'}</span>
+          </div>
+          {isLoading && (
+            <div className="progress-wrap" aria-label="Header request progress">
+              <div className="progress-bar" />
+            </div>
+          )}
         </div>
         <div className="hero-badge">
           <span>Backend</span>
-          <strong>{baseUrl.trim().replace(/\/$/, '') || 'localhost'}</strong>
+          <strong>{backendModeLabel}</strong>
+          <span className="hero-badge-url">{normalizedBaseUrl || 'localhost'}</span>
         </div>
       </section>
 
       <section className="panel">
         <h2>API Pull Down</h2>
         <form onSubmit={runRequest} className="form">
+          <div className="backend-group" role="group" aria-label="Backend target">
+            <button type="button" className={backendMode === 'standalone' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('standalone')}>
+              Standalone
+            </button>
+            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')}>
+              Docker
+            </button>
+            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')}>
+              AWS
+            </button>
+          </div>
+          <div className="meta">Default is Docker. Use Standalone for local port 4002 and AWS for the deployed Fargate backend.</div>
           <label>
             Server URL
-            <input value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
+            <input value={baseUrl} onChange={handleBaseUrlChange} />
           </label>
           <label>
             API Call
