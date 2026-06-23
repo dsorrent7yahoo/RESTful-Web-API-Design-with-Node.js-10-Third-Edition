@@ -16,6 +16,11 @@ COPY coherent-11-07-2022 /coherent-11-07-2022
 COPY infra/ /app/infra/
 COPY .github/ /app/.github/
 COPY docker-compose.flask.yml /app/docker-compose.flask.yml
+# React frontend source (no node_modules, no dist — those are in SKIP_DIRS)
+COPY flask-dynamo-db-frontend/src /app/flask-dynamo-db-frontend/src
+COPY flask-dynamo-db-frontend/index.html /app/flask-dynamo-db-frontend/index.html
+COPY flask-dynamo-db-frontend/package.json /app/flask-dynamo-db-frontend/package.json
+COPY flask-dynamo-db-frontend/vite.config.js /app/flask-dynamo-db-frontend/vite.config.js
 
 ENV PORT=4001 \
     AWS_REGION=us-east-1 \

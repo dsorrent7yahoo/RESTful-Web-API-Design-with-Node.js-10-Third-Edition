@@ -144,13 +144,22 @@ def build_swagger_ui_html():
   </head>
   <body>
     <div id="token-bar">
-      <strong>Flask DynamoDB API</strong>
-      &mdash;
-      <a href="/">Login / Register</a>
+      <strong>Flask DynamoDB API Docs</strong>
       <span id="token-status">Checking token&hellip;</span>
-      <button id="close-btn" title="Close this tab and return to the app"
-        onclick="window.opener ? window.close() : window.history.back()">
-        ✕ Close
+      <button id="close-btn" title="Return to the React UI"
+        onclick="
+          if (window.opener && !window.opener.closed) {
+            window.opener.focus();
+            window.close();
+          } else if (document.referrer) {
+            window.location.href = document.referrer;
+          } else {
+            window.location.href = window.location.hostname === 'localhost'
+              ? 'http://localhost:5173/'
+              : '/';
+          }
+        ">
+        ← Back to App
       </button>
     </div>
     <div id="swagger-ui"></div>
