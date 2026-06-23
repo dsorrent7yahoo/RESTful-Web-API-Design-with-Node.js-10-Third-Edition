@@ -125,7 +125,7 @@ if (require.main === module) {
     })
     .then(function() {
       app.listen(port, function() {
-        console.log('Chapter04 DynamoDB Backend listening on port ' + port);
+        console.log('DynamoDB Backend listening on port ' + port);
       });
     })
     .catch(function(error) {

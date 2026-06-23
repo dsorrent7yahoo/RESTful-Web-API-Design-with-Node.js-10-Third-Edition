@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "name_prefix" {
   description = "Prefix applied to every named resource"
   type        = string
-  default     = "chapter04-flask"
+  default     = "sorrentino-fargate-fhir-demo"
 }
 
 # ── Networking ────────────────────────────────────────────────────────────────

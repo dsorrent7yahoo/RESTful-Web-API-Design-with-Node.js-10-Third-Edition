@@ -3,7 +3,9 @@ from flask import Blueprint, jsonify, request, abort
 
 source_bp = Blueprint("source", __name__)
 
-SOURCE_ROOT = os.environ.get("SOURCE_ROOT", "/source")
+# Default: two levels up from routes/source.py → flask-dynamo-db-backend/ (or /app/ in Docker)
+_APP_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SOURCE_ROOT = os.environ.get("SOURCE_ROOT", _APP_ROOT)
 
 ALLOWED_EXTENSIONS = {
     ".py", ".js", ".jsx", ".ts", ".tsx", ".json", ".yaml", ".yml",

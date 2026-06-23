@@ -14,11 +14,11 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: chapter04-flask-repo        # terraform output: ecr_repository_url (repo name only)
-  ECS_CLUSTER: chapter04-flask-cluster        # terraform output: ecs_cluster_name
-  ECS_SERVICE: chapter04-flask-service        # terraform output: ecs_service_name
-  ECS_TASK_FAMILY: chapter04-flask-task       # terraform output: ecs_task_family
-  CONTAINER_NAME: chapter04-flask-api         # terraform output: container_name
+  ECR_REPOSITORY: sorrentino-fargate-fhir-demo-repo        # terraform output: ecr_repository_url (repo name only)
+  ECS_CLUSTER: sorrentino-fargate-fhir-demo-cluster        # terraform output: ecs_cluster_name
+  ECS_SERVICE: sorrentino-fargate-fhir-demo-service        # terraform output: ecs_service_name
+  ECS_TASK_FAMILY: sorrentino-fargate-fhir-demo-task       # terraform output: ecs_task_family
+  CONTAINER_NAME: sorrentino-fargate-fhir-demo-api         # terraform output: container_name
 
 jobs:
   # ── Test ───────────────────────────────────────────────────────────────────
