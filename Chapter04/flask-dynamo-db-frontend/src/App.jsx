@@ -97,7 +97,7 @@ const TABLE_COLUMNS = [
 const BACKEND_PRESETS = {
   cmdline: 'http://localhost:4001',   // python app.py
   docker:  'http://localhost:4001',   // docker compose
-  aws:     'http://44.213.67.121:4001', // AWS Fargate (flask-backend-cluster)
+  aws:     'http://chapter04-flask-alb-2093616647.us-east-1.elb.amazonaws.com', // AWS Fargate ALB
 };
 
 // ---------------------------------------------------------------------------
@@ -252,6 +252,16 @@ export default function App() {
   const [glueTables, setGlueTables]                     = useState([]);
   const [glueDbName, setGlueDbName]                     = useState('healthcare_data_lake');
   const [glueTablesLoading, setGlueTablesLoading]       = useState(false);
+
+  // Source browser
+  const [srcTree, setSrcTree]               = useState([]);
+  const [srcExpanded, setSrcExpanded]       = useState(new Set());
+  const [srcSelectedPath, setSrcSelectedPath] = useState('');
+  const [srcContent, setSrcContent]         = useState('');
+  const [srcLoading, setSrcLoading]         = useState(false);
+  const [srcError, setSrcError]             = useState('');
+  const [srcTreeLoaded, setSrcTreeLoaded]   = useState(false);
+  const [srcQuickFile, setSrcQuickFile]     = useState('README.md');
 
   const selected = useMemo(
     () => API_OPTIONS.find((o) => o.id === selectedId) || API_OPTIONS[0],
@@ -752,6 +762,77 @@ export default function App() {
     setBodyText(prettyJson(DEFAULT_BODY));
     setResult('Run a request to see results here.');
     setStatus('Explorer reset');
+  }
+
+  // -------------------------------------------------------------------------
+  // Source browser helpers
+  // -------------------------------------------------------------------------
+  async function loadSourceTree() {
+    setSrcLoading(true);
+    setSrcError('');
+    try {
+      const res = await fetch(`${normalizedBaseUrl}/source/tree`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSrcTree(data.tree || []);
+      setSrcTreeLoaded(true);
+    } catch (e) {
+      setSrcError(e.message);
+    } finally {
+      setSrcLoading(false);
+    }
+  }
+
+  async function loadSourceFile(path) {
+    setSrcSelectedPath(path);
+    setSrcLoading(true);
+    setSrcContent('');
+    setSrcError('');
+    try {
+      const res = await fetch(`${normalizedBaseUrl}/source/file?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setSrcContent(data.content || '');
+    } catch (e) {
+      setSrcError(e.message);
+    } finally {
+      setSrcLoading(false);
+    }
+  }
+
+  function toggleSrcDir(path) {
+    setSrcExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path); else next.add(path);
+      return next;
+    });
+  }
+
+  function renderSrcTree(nodes, depth = 0) {
+    return nodes.map(node => (
+      <div key={node.path} style={{ paddingLeft: `${depth * 14}px` }}>
+        {node.type === 'dir' ? (
+          <>
+            <div onClick={() => toggleSrcDir(node.path)}
+              style={{ cursor: 'pointer', userSelect: 'none', padding: '2px 4px', display: 'flex', alignItems: 'center', gap: '5px', borderRadius: '4px' }}
+              className="src-tree-dir">
+              <span style={{ fontSize: '10px', color: '#64748b' }}>{srcExpanded.has(node.path) ? '▼' : '▶'}</span>
+              <span>📁 {node.name}</span>
+            </div>
+            {srcExpanded.has(node.path) && renderSrcTree(node.children || [], depth + 1)}
+          </>
+        ) : (
+          <div onClick={() => loadSourceFile(node.path)}
+            style={{ cursor: 'pointer', padding: '2px 4px', borderRadius: '4px',
+              color: srcSelectedPath === node.path ? '#0f766e' : '#334155',
+              fontWeight: srcSelectedPath === node.path ? 700 : 400,
+              background: srcSelectedPath === node.path ? '#f0fdf4' : 'transparent' }}
+            className="src-tree-file">
+            📄 {node.name}
+          </div>
+        )}
+      </div>
+    ));
   }
 
   // -------------------------------------------------------------------------
@@ -1279,6 +1360,127 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Source Browser */}
+      <section className="panel">
+        <h2>Source Browser</h2>
+        <p style={{ fontSize: '13px', color: '#475569', marginBottom: '12px' }}>
+          Browse the full project source — Flask backend, React UI, Terraform infrastructure, Docker config, Jupyter notebooks, and GitHub Actions CI/CD pipelines.
+        </p>
+
+        {/* Quick-access dropdown */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Quick View:</label>
+          <select value={srcQuickFile} onChange={(e) => setSrcQuickFile(e.target.value)}
+            style={{ flex: 1, minWidth: '220px', fontSize: '13px', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff' }}>
+            <option value="">— select a key file —</option>
+            <option value="README.md">📖 README.md  (project overview, Docker &amp; AWS deploy guide)</option>
+            <optgroup label="Terraform / Infrastructure">
+              <option value="infra/terraform/flask-fargate-ecs/main.tf">main.tf  (ECR · ECS · ALB · IAM · OIDC)</option>
+              <option value="infra/terraform/flask-fargate-ecs/variables.tf">variables.tf</option>
+              <option value="infra/terraform/flask-fargate-ecs/terraform.tfvars">terraform.tfvars</option>
+              <option value="infra/terraform/flask-fargate-ecs/outputs.tf">outputs.tf</option>
+            </optgroup>
+            <optgroup label="GitHub Actions CI/CD">
+              <option value=".github/workflows/flask-dynamo-db-backend.yml">flask-dynamo-db-backend.yml  (test → ECR push → Fargate deploy)</option>
+            </optgroup>
+            <optgroup label="Docker">
+              <option value="flask-dynamo-db-backend/Dockerfile">Dockerfile</option>
+              <option value="docker-compose.flask.yml">docker-compose.flask.yml  (local stack)</option>
+            </optgroup>
+            <optgroup label="Flask Backend">
+              <option value="flask-dynamo-db-backend/app.py">app.py  (blueprints + CORS + error handlers)</option>
+              <option value="flask-dynamo-db-backend/routes/source.py">routes/source.py  (this source browser API)</option>
+              <option value="flask-dynamo-db-backend/routes/export.py">routes/export.py  (S3 export + Glue)</option>
+              <option value="flask-dynamo-db-backend/routes/medications.py">routes/medications.py  (CRUD)</option>
+              <option value="flask-dynamo-db-backend/routes/auth.py">routes/auth.py  (JWT auth)</option>
+              <option value="flask-dynamo-db-backend/modules/auth.py">modules/auth.py  (user management)</option>
+              <option value="flask-dynamo-db-backend/requirements.txt">requirements.txt</option>
+            </optgroup>
+            <optgroup label="React Frontend">
+              <option value="flask-dynamo-db-frontend/src/App.jsx">App.jsx  (this UI)</option>
+              <option value="flask-dynamo-db-frontend/vite.config.js">vite.config.js</option>
+            </optgroup>
+            <optgroup label="Jupyter / Databricks">
+              <option value="healthcare_datalake_databricks.ipynb">healthcare_datalake_databricks.ipynb</option>
+              <option value="databricks_client.py">databricks_client.py</option>
+            </optgroup>
+            <optgroup label="OpenAPI">
+              <option value="openapi.json">openapi.json  (API spec)</option>
+            </optgroup>
+          </select>
+          <button type="button" disabled={!srcQuickFile || srcLoading}
+            onClick={() => srcQuickFile && loadSourceFile(srcQuickFile)}
+            style={{ padding: '6px 16px', fontSize: '13px', fontWeight: 600,
+              background: srcQuickFile ? '#0f766e' : '#94a3b8', color: '#fff',
+              border: 'none', borderRadius: '6px', cursor: srcQuickFile ? 'pointer' : 'default' }}>
+            View
+          </button>
+          {!srcTreeLoaded ? (
+            <button type="button" disabled={srcLoading} onClick={loadSourceTree}
+              style={{ padding: '6px 14px', fontSize: '13px', fontWeight: 600,
+                background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+              {srcLoading && !srcContent ? 'Loading...' : 'Browse All Files'}
+            </button>
+          ) : (
+            <button type="button" onClick={() => { setSrcTreeLoaded(false); setSrcTree([]); setSrcExpanded(new Set()); }}
+              style={{ padding: '6px 14px', fontSize: '13px', color: '#475569',
+                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer' }}>
+              Hide Tree
+            </button>
+          )}
+        </div>
+
+        {srcError && (
+          <div style={{ color: '#b91c1c', fontSize: '13px', marginBottom: '10px', padding: '8px 12px', background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
+            Error: {srcError}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '16px', minHeight: srcTreeLoaded || srcContent ? '320px' : 'auto' }}>
+          {/* File tree */}
+          {srcTreeLoaded && (
+            <div style={{ width: '250px', flexShrink: 0, overflowY: 'auto', maxHeight: '520px',
+              borderRight: '1px solid #e2e8f0', paddingRight: '10px',
+              fontSize: '12.5px', fontFamily: '"Fira Mono", monospace', lineHeight: '1.5' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.1em', color: '#64748b', marginBottom: '8px' }}>
+                /source
+              </div>
+              {srcTree.length > 0 ? renderSrcTree(srcTree) : (
+                <div style={{ color: '#94a3b8', fontSize: '12px' }}>No files found</div>
+              )}
+            </div>
+          )}
+
+          {/* File content */}
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            {srcSelectedPath && (
+              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.08em', color: '#64748b', marginBottom: '6px', fontFamily: 'monospace' }}>
+                {srcSelectedPath}
+              </div>
+            )}
+            {srcLoading && !srcContent && (
+              <div style={{ color: '#64748b', fontSize: '13px', padding: '12px 0' }}>Loading file...</div>
+            )}
+            {srcContent ? (
+              <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '16px', borderRadius: '8px',
+                fontSize: '12px', lineHeight: '1.65', overflow: 'auto', maxHeight: '520px',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+                fontFamily: '"Fira Mono", "Cascadia Code", "Consolas", monospace' }}>
+                {srcContent}
+              </pre>
+            ) : (
+              !srcLoading && (
+                <div style={{ color: '#94a3b8', fontSize: '13px', paddingTop: '4px' }}>
+                  Pick a file from the dropdown above or click a file in the tree.
+                </div>
+              )
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Data Lake Pipeline modal */}
       {showPipelineModal && (

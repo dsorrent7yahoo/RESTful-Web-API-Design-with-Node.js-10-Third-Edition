@@ -13,11 +13,15 @@ coherent-11-07-2022/dicom
 fhirstarters/
 spring-boot-react-frontend/
 dynamo-db-frontend/
-flask-dynamo-db-frontend/
 dynamo-db-backend/
 backend/
-infra/
 test/
 model/
 modules/
 routes/
+
+# Exclude Terraform runtime artifacts (state, lock, providers) but keep .tf source
+infra/**/.terraform
+infra/**/.terraform.lock.hcl
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup

@@ -16,6 +16,7 @@ from routes.medications import medications_bp
 from routes.auth import auth_bp
 from routes.upload import upload_bp
 from routes.export import export_bp
+from routes.source import source_bp
 from utils.startup import apply_startup_overrides_from_args, ensure_default_csv_tables_exist
 
 
@@ -50,6 +51,7 @@ app.register_blueprint(medications_bp)
 app.register_blueprint(auth_bp)
 app.register_blueprint(upload_bp)
 app.register_blueprint(export_bp)
+app.register_blueprint(source_bp)
 
 
 
