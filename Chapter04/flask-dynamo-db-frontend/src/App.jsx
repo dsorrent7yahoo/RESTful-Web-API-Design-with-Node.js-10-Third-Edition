@@ -97,7 +97,7 @@ const TABLE_COLUMNS = [
 const BACKEND_PRESETS = {
   cmdline: 'http://localhost:4001',   // python app.py
   docker:  'http://localhost:4001',   // docker compose
-  aws:     'http://chapter04-flask-alb-2093616647.us-east-1.elb.amazonaws.com', // AWS Fargate ALB
+  aws:     'http://sorrentino-fargate-fhir-demo-alb-1996236158.us-east-1.elb.amazonaws.com', // AWS Fargate ALB
 };
 
 // ---------------------------------------------------------------------------
@@ -896,17 +896,17 @@ export default function App() {
             </div>
             <div style={{ fontSize: '12px', color: '#475569', marginTop: '6px' }}>
               {backendMode === 'aws'
-                ? <>AWS Fargate &mdash; <code style={{fontSize:'11px'}}>100.48.42.127:4001</code></>
+                ? <>AWS Fargate &mdash; <code style={{fontSize:'11px'}}>{BACKEND_PRESETS.aws.replace(/^https?:\/\//, '')}</code></>
                 : <>localhost:4001 &mdash; {backendMode === 'docker' ? 'docker compose up' : 'python app.py'}</>}
             </div>
           </div>
 
-          <div style={{ marginTop: '10px', fontSize: '13px', display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <a href={`${normalizedBaseUrl}/`} target="_blank" rel="noreferrer" style={{ color: '#0f766e', fontWeight: 700 }}>
-              Login / Register
-            </a>
-            <a href={`${normalizedBaseUrl}/api-docs`} target="_blank" rel="noreferrer" style={{ color: '#2563eb', fontWeight: 700 }}>
-              Swagger UI
+          <div style={{ marginTop: '10px', fontSize: '13px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <a href={`${normalizedBaseUrl}/api-docs`} target="_blank" rel="noreferrer"
+              style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px',
+                textDecoration: 'none', display: 'inline-block' }}>
+              📋 Swagger Docs
             </a>
             <button type="button"
               onClick={() => { setShowDocsModal(true); setDocsMode('readme'); loadSourceFile('README.md'); }}

@@ -47,7 +47,150 @@ A production-quality REST API for healthcare medication data, deployed on AWS EC
 
 ---
 
-## Prerequisites
+## React UI — Quick Start & Button Reference
+
+The React single-page app (`flask-dynamo-db-frontend/`) drives every API endpoint, displays results, and lets you browse all project source files without leaving the browser.
+
+### Starting the UI
+
+**Option A — Local development (Vite hot-reload)**
+```bash
+cd flask-dynamo-db-frontend
+npm install          # first time only
+npm run dev          # → http://localhost:5173
+```
+
+**Option B — Served by Docker (production build bundled into Flask)**
+```bash
+# From Chapter04/ — starts Flask + DynamoDB Local + Admin UI
+docker compose -f docker-compose.flask.yml up --build -d
+# Then open http://localhost:4001
+```
+
+**Option C — Live on AWS Fargate**
+```
+http://chapter04-flask-alb-2093616647.us-east-1.elb.amazonaws.com
+```
+
+---
+
+### Hero Section — Backend Selector
+
+At the top of the page, three buttons choose which backend the UI talks to:
+
+| Button | URL | Use when |
+|--------|-----|----------|
+| **Command Line** | `http://localhost:4001` | Running `python app.py` directly |
+| **Docker** | `http://localhost:4001` | Running via `docker compose` |
+| **AWS Fargate** | ALB DNS name | Testing against the live Fargate deployment |
+
+> Click **AWS Fargate** to point at the live cloud environment with real DynamoDB data.
+
+---
+
+### Hero Links & Buttons
+
+| Control | What it does |
+|---------|-------------|
+| **Login / Register** | Opens the Flask auth page (`/`) in a new tab — register an account or log in to get a JWT |
+| **Swagger UI** | Opens the interactive OpenAPI spec (`/api-docs`) in a new tab |
+| **📖 Docs & Source** | Opens the **Docs & Source modal** (see below) |
+
+---
+
+### 📖 Docs & Source Modal
+
+Click **📖 Docs & Source** from the hero section to open a full-screen popup with five tabs:
+
+| Tab | What it shows |
+|-----|--------------|
+| **📖 README** | This file — project overview, Docker & AWS deploy guide (auto-loads on open) |
+| **🏗️ Terraform** | Left panel lists all `.tf` files; click any file to view it in the code pane |
+| **🐳 Docker / Fargate** | `Dockerfile` and `docker-compose.flask.yml` |
+| **⚙️ GitHub Actions** | The CI/CD workflow YAML (`flask-dynamo-db-backend.yml`) |
+| **📂 Browse Files** | Full recursive tree of the backend source; click any file to view it |
+
+> All file content is fetched live from the running Flask container via `GET /source/file?path=<file>`.  
+> The **Browse Files** tree is built by `GET /source/tree` which walks the app directory.
+
+---
+
+### Login Panel
+
+Before making authenticated API calls you must log in:
+
+1. Enter email and password (default test user: `react-dgs@yahoo.com` / `python`)
+2. Click **Login** — the JWT is stored in `localStorage.healthCareToken`
+3. The panel shows **✅ Authenticated — JWT token active** when ready
+4. Click **Log Out** to clear the token
+
+---
+
+### API Explorer Panel
+
+| Control | What it does |
+|---------|-------------|
+| **Base URL** | Read-only display of the currently selected backend URL |
+| **API Call** dropdown | Choose any of the 20 available API endpoints |
+| **topN** | Limit the number of results returned (default 10) |
+| **Filter by ID / Patient / Medication** | Optional query parameters for filtered lookups |
+| **URL preview** | Shows the exact URL that will be called |
+| **Invoke API** | Sends the request; result appears in the Response panel |
+| **Reset** | Clears all filter fields |
+| **Refresh Tables** | Calls `GET /tables` and refreshes the Loaded Tables list |
+
+**Available API endpoints (dropdown):**
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /medications/` | List all medications (topN limit) |
+| `GET /medications/id/:id` | Fetch single medication by DynamoDB ID |
+| `GET /medications/patient/:patient` | All medications for a patient |
+| `GET /medications/code/:code` | Filter by medication code |
+| `GET /medications/medication/:medicationId` | Filter by medication ID |
+| `GET /medications/patients/multiple-medications` | Patients on multiple medications |
+| `POST /medications/` | Create a new medication record |
+| `PUT /medications/:id` | Update an existing record |
+| `DELETE /medications/:id` | Delete a record |
+| `POST /medications/upload` | Bulk import via JSON `csvContent` field |
+| `GET /tables` | List all DynamoDB tables |
+| `POST /upload/file` | Upload a CSV file (multipart form) |
+| `POST /upload` | Import CSV by server-side file path |
+| `GET /export/s3/buckets` | List accessible S3 buckets |
+| `POST /export/s3` | Export DynamoDB table → S3 as CSV |
+| `GET /export/glue/databases` | List Glue databases |
+| `GET /export/glue/databases/{db}/tables` | List tables in a Glue database |
+| `POST /export/glue` | Register an S3 path as a Glue table |
+| `🚀 POST /export/pipeline/all` | Full pipeline: DynamoDB → S3 → Glue (one click) |
+| `📂 POST /export/pipeline/from-csv` | Upload a CSV → S3 → Glue |
+
+---
+
+### Response Panel
+
+Displays the HTTP status code and full JSON response from the last API call.  
+Large payloads are scrollable. Errors are highlighted in red.
+
+---
+
+### Loaded Tables Panel
+
+Shows all DynamoDB tables visible on the selected backend. Click **Refresh Table List** to update after creating tables or switching backends.
+
+---
+
+### Glue Data Lake Tables Panel
+
+Enter a Glue database name (default: `healthcare_data_lake`) and click **Refresh** to list all tables catalogued in AWS Glue for that database.
+
+---
+
+### Source Browser Panel
+
+A persistent scrollable panel at the bottom of the page (same file-browsing capability as the modal's **📂 Browse Files** tab). Use **Browse All Files** to load the recursive source tree, or use the **Quick View** dropdown to jump directly to a key file.
+
+---
+
 
 | Tool | Min version | Install |
 |------|-------------|---------|

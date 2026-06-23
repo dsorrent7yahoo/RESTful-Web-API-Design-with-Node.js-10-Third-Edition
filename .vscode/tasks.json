@@ -145,7 +145,7 @@
       "command": "cmd",
       "args": [
         "/c",
-        "set AWS_PROFILE=default && aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 005905648819.dkr.ecr.us-east-1.amazonaws.com && docker build -f flask-dynamo-db-backend/Dockerfile -t 005905648819.dkr.ecr.us-east-1.amazonaws.com/chapter04-flask-repo:latest . && docker push 005905648819.dkr.ecr.us-east-1.amazonaws.com/chapter04-flask-repo:latest"
+        "set AWS_PROFILE=default && aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 005905648819.dkr.ecr.us-east-1.amazonaws.com && docker build -f flask-dynamo-db-backend/Dockerfile -t 005905648819.dkr.ecr.us-east-1.amazonaws.com/sorrentino-fargate-fhir-demo-repo:latest . && docker push 005905648819.dkr.ecr.us-east-1.amazonaws.com/sorrentino-fargate-fhir-demo-repo:latest"
       ],
       "options": { "cwd": "${workspaceFolder}/Chapter04" },
       "group": "build",
@@ -158,7 +158,7 @@
       "command": "cmd",
       "args": [
         "/c",
-        "set AWS_PROFILE=default && aws ecs update-service --cluster chapter04-flask-cluster --service chapter04-flask-service --force-new-deployment --region us-east-1"
+        "set AWS_PROFILE=default && aws ecs update-service --cluster sorrentino-fargate-fhir-demo-cluster --service sorrentino-fargate-fhir-demo-service --force-new-deployment --region us-east-1"
       ],
       "options": { "cwd": "${workspaceFolder}/Chapter04" },
       "group": "build",
