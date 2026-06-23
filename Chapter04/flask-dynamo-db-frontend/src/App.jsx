@@ -1,4 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import ApiExplorerModal from './ApiExplorerModal';
+import SwaggerDocsButton from './SwaggerDocsButton';
+import DocsSourceModal from './DocsSourceModal';
+import FileContentViewer from './FileContentViewer';
 
 // ---------------------------------------------------------------------------
 // API options — medications (same routes as Node backend) + Flask-specific
@@ -927,12 +931,7 @@ export default function App() {
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
               🔬 API Explorer
             </button>
-            <a href={`${normalizedBaseUrl}/api-docs`} target="_blank"
-              style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff',
-                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px',
-                textDecoration: 'none', display: 'inline-block' }}>
-              📋 Swagger Docs
-            </a>
+            <SwaggerDocsButton normalizedBaseUrl={normalizedBaseUrl} />
             <button type="button"
               onClick={() => { setShowDocsModal(true); setDocsMode('readme'); loadSourceFile('README.md'); }}
               style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', border: 'none',
@@ -993,191 +992,30 @@ export default function App() {
       </section>
 
       {/* API Explorer Modal */}
-      {showApiModal && (
-        <div className="modal-backdrop" onClick={() => setShowApiModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '760px', width: '95vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div className="modal-header">
-              <h3>🔬 API Explorer</h3>
-              <button type="button" onClick={() => setShowApiModal(false)}>Close</button>
-            </div>
-            <div style={{ overflowY: 'auto', padding: '20px 24px 24px', flex: 1 }}>
-
-        {/* Auth status bar */}
-        {authToken ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px',
-            padding: '8px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0',
-            borderRadius: '8px', fontSize: '13px' }}>
-            <span style={{ color: '#059669', fontWeight: 700 }}>✅ Authenticated</span>
-            <button type="button" onClick={handleLogout}
-              style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: '12px', fontWeight: 600,
-                background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca',
-                borderRadius: '5px', cursor: 'pointer' }}>
-              Log Out
-            </button>
-          </div>
-        ) : (
-          <details style={{ marginBottom: '16px', padding: '10px 14px', background: '#fefce8',
-            border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px' }}>
-            <summary style={{ fontWeight: 700, color: '#b45309', cursor: 'pointer' }}>
-              ⚠️ Not logged in — expand to log in
-            </summary>
-            <form onSubmit={handleLogin} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '10px' }}>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                Email
-                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
-                  autoComplete="username"
-                  style={{ padding: '5px 8px', fontSize: '13px', borderRadius: '5px', border: '1px solid #d1d5db', width: '200px' }} />
-              </label>
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
-                Password
-                <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
-                  autoComplete="current-password"
-                  style={{ padding: '5px 8px', fontSize: '13px', borderRadius: '5px', border: '1px solid #d1d5db', width: '160px' }} />
-              </label>
-              <button type="submit" disabled={loginLoading}
-                style={{ padding: '6px 16px', fontWeight: 700, fontSize: '13px', background: '#0f766e',
-                  color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
-                {loginLoading ? 'Logging in...' : 'Log In'}
-              </button>
-              {loginStatus && <span style={{ color: '#b91c1c', fontSize: '12px' }}>{loginStatus}</span>}
-            </form>
-          </details>
-        )}
-
-        <form onSubmit={runRequest} className="form">
-
-          {/* Backend selector removed from here — now lives in hero */}
-
-          <label>
-            Base URL
-            <input value={baseUrl} onChange={handleBaseUrlChange} />
-          </label>
-
-          <label>
-            API Call
-            <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)}>
-              <optgroup label="── Medications ──">
-                {API_OPTIONS.filter((o) => ['getAll','getById','getByPatient','getByCode','getByMedicationPath','getPatientsMulti','postMedication','putMedication','deleteMedication','uploadMedCsv','listTables'].includes(o.id)).map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="── Flask Upload ──">
-                {API_OPTIONS.filter((o) => ['uploadFile','uploadJson'].includes(o.id)).map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="── S3 Export ──">
-                {API_OPTIONS.filter((o) => ['listBuckets','exportS3'].includes(o.id)).map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="── Glue Catalog ──">
-                {API_OPTIONS.filter((o) => ['listGlueDbs','listGlueTables','registerGlue'].includes(o.id)).map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="── Data Lake ──">
-                {API_OPTIONS.filter((o) => ['pipelineAll', 'pipelineFromCsv'].includes(o.id)).map((o) => (
-                  <option key={o.id} value={o.id}>{o.label}</option>
-                ))}
-              </optgroup>
-            </select>
-          </label>
-
-          {selected.needsId && (
-            <label>
-              Medication ID
-              <input value={medicationId} onChange={(e) => setMedicationId(e.target.value)} placeholder="Enter id" />
-            </label>
-          )}
-          {selected.needsMedicationPathId && (
-            <label>
-              Medication Path ID
-              <input value={medicationPathId} onChange={(e) => setMedicationPathId(e.target.value)} placeholder="Enter medicationId" />
-            </label>
-          )}
-          {selected.needsPatient && (
-            <label>
-              Patient
-              <input value={patient} onChange={(e) => setPatient(e.target.value)} placeholder="Enter patient" />
-            </label>
-          )}
-          {selected.needsCode && (
-            <label>
-              Code
-              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Enter code" />
-            </label>
-          )}
-          {selected.needsDatabase && (
-            <label>
-              Glue Database Name
-              <input value={databaseName} onChange={(e) => setDatabaseName(e.target.value)} placeholder="e.g. healthcare" />
-            </label>
-          )}
-          {selected.needsTopN && (
-            <label>
-              topN
-              <input value={topN} onChange={(e) => setTopN(e.target.value)} placeholder="e.g. 10" />
-            </label>
-          )}
-          {selected.supportsQueryFilters && (
-            <>
-              <label>Filter by ID (optional)
-                <input value={queryId} onChange={(e) => setQueryId(e.target.value)} placeholder="id filter" />
-              </label>
-              <label>Filter by Patient ID (optional)
-                <input value={queryPatientId} onChange={(e) => setQueryPatientId(e.target.value)} placeholder="patientId filter" />
-              </label>
-              <label>Filter by Medication ID (optional)
-                <input value={queryMedicationId} onChange={(e) => setQueryMedicationId(e.target.value)} placeholder="medicationId filter" />
-              </label>
-            </>
-          )}
-          {selected.needsFileUpload && (
-            <>
-              <label>
-                DynamoDB Table Name
-                <input value={uploadTableName} onChange={(e) => setUploadTableName(e.target.value)} placeholder="e.g. medications" />
-              </label>
-              <label>
-                CSV File
-                <input type="file" accept=".csv,text/csv" onChange={handleFileSelection} />
-              </label>
-              <div className="meta">{selectedFileName ? `Selected: ${selectedFileName}` : 'No file selected'}</div>
-            </>
-          )}
-          {selected.needsBody && (
-            <label>
-              Request Body (JSON)
-              <textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} />
-            </label>
-          )}
-
-          <div className="meta">URL: {resolvedUrlPreview}</div>
-
-          <div className="actions">
-            <button type="submit" disabled={isLoading}>
-              {isLoading ? 'Running...' : 'Invoke API'}
-            </button>
-            <button type="button" onClick={restartExplorer}>Reset</button>
-            <button type="button" onClick={() => loadDynamoTables(baseUrl)}>Refresh Tables</button>
-          </div>
-        </form>
-        <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
-          <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: '8px' }}>Response</div>
-          <div className="status">Status: {status || 'No request yet'}</div>
-        {isLoading && (
-          <div className="progress-wrap" aria-live="polite" aria-label="Request in progress">
-            <div className="progress-bar" />
-          </div>
-        )}
-          <pre>{result}</pre>
-        </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <ApiExplorerModal
+        show={showApiModal} onClose={() => setShowApiModal(false)}
+        authToken={authToken} handleLogout={handleLogout}
+        loginEmail={loginEmail} setLoginEmail={setLoginEmail}
+        loginPassword={loginPassword} setLoginPassword={setLoginPassword}
+        loginLoading={loginLoading} loginStatus={loginStatus} handleLogin={handleLogin}
+        baseUrl={baseUrl} handleBaseUrlChange={handleBaseUrlChange}
+        selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} API_OPTIONS={API_OPTIONS}
+        medicationId={medicationId} setMedicationId={setMedicationId}
+        medicationPathId={medicationPathId} setMedicationPathId={setMedicationPathId}
+        patient={patient} setPatient={setPatient}
+        code={code} setCode={setCode}
+        databaseName={databaseName} setDatabaseName={setDatabaseName}
+        topN={topN} setTopN={setTopN}
+        queryId={queryId} setQueryId={setQueryId}
+        queryPatientId={queryPatientId} setQueryPatientId={setQueryPatientId}
+        queryMedicationId={queryMedicationId} setQueryMedicationId={setQueryMedicationId}
+        uploadTableName={uploadTableName} setUploadTableName={setUploadTableName}
+        selectedFileName={selectedFileName} handleFileSelection={handleFileSelection}
+        bodyText={bodyText} setBodyText={setBodyText}
+        resolvedUrlPreview={resolvedUrlPreview}
+        runRequest={runRequest} restartExplorer={restartExplorer} loadDynamoTables={loadDynamoTables}
+        isLoading={isLoading} status={status} result={result}
+      />
 
       {/* Loaded Tables */}
       <section className="panel loaded-tables-panel">
@@ -1470,149 +1308,15 @@ export default function App() {
       )}
 
       {/* Docs & Source Modal */}
-      {showDocsModal && (
-        <div className="modal-backdrop" onClick={() => setShowDocsModal(false)}>
-          <div className="modal-card" onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '980px', width: '95vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div className="modal-header">
-              <h3>📖 Project Documentation &amp; Source Files</h3>
-              <button type="button" onClick={() => setShowDocsModal(false)}>Close</button>
-            </div>
-
-            {/* Mode selector tabs */}
-            <div style={{ display: 'flex', gap: '6px', padding: '10px 0 12px', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
-              {[
-                { mode: 'readme',    label: '📖 README',          color: '#7c3aed' },
-                { mode: 'terraform', label: '🏗️ Terraform',       color: '#0f766e' },
-                { mode: 'docker',    label: '🐳 Docker / Fargate', color: '#0369a1' },
-                { mode: 'yaml',      label: '⚙️ GitHub Actions',   color: '#b45309' },
-                { mode: 'browse',    label: '📂 Browse Files',     color: '#475569' },
-              ].map(({ mode, label, color }) => (
-                <button key={mode} type="button" onClick={() => switchDocsMode(mode)}
-                  style={{ padding: '6px 15px', fontSize: '13px', fontWeight: 600, borderRadius: '20px',
-                    border: `2px solid ${docsMode === mode ? color : '#e2e8f0'}`,
-                    background: docsMode === mode ? color : '#fff',
-                    color: docsMode === mode ? '#fff' : '#374151', cursor: 'pointer' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            {srcError && (
-              <div style={{ color: '#b91c1c', fontSize: '13px', margin: '8px 0', padding: '8px 12px',
-                background: '#fef2f2', borderRadius: '6px', border: '1px solid #fecaca' }}>
-                Error: {srcError}
-              </div>
-            )}
-
-            {/* Content area */}
-            <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '14px', minHeight: 0, paddingTop: '10px' }}>
-
-              {/* Left panel: file list for terraform/docker/yaml/browse */}
-              {docsMode !== 'readme' && (
-                <div style={{ width: '230px', flexShrink: 0, overflowY: 'auto',
-                  borderRight: '1px solid #e2e8f0', paddingRight: '10px', fontSize: '12.5px', lineHeight: '1.6' }}>
-                  {docsMode === 'terraform' && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '0.1em', color: '#0f766e', marginBottom: '8px' }}>Terraform .tf files</div>
-                      {TERRAFORM_FILES.map(f => (
-                        <div key={f.path} onClick={() => loadSourceFile(f.path)}
-                          style={{ padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', marginBottom: '3px',
-                            fontFamily: 'monospace', fontSize: '12px',
-                            background: srcSelectedPath === f.path ? '#ecfdf5' : 'transparent',
-                            color: srcSelectedPath === f.path ? '#065f46' : '#374151',
-                            border: srcSelectedPath === f.path ? '1px solid #6ee7b7' : '1px solid transparent' }}>
-                          {f.label}
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  {docsMode === 'docker' && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '0.1em', color: '#0369a1', marginBottom: '8px' }}>Docker / Fargate files</div>
-                      {DOCKER_FILES.map(f => (
-                        <div key={f.path} onClick={() => loadSourceFile(f.path)}
-                          style={{ padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', marginBottom: '3px',
-                            fontFamily: 'monospace', fontSize: '12px',
-                            background: srcSelectedPath === f.path ? '#eff6ff' : 'transparent',
-                            color: srcSelectedPath === f.path ? '#1d4ed8' : '#374151',
-                            border: srcSelectedPath === f.path ? '1px solid #93c5fd' : '1px solid transparent' }}>
-                          {f.label}
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  {docsMode === 'yaml' && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '0.1em', color: '#b45309', marginBottom: '8px' }}>GitHub Actions YAML</div>
-                      {YAML_FILES.map(f => (
-                        <div key={f.path} onClick={() => loadSourceFile(f.path)}
-                          style={{ padding: '5px 8px', borderRadius: '5px', cursor: 'pointer', marginBottom: '3px',
-                            fontFamily: 'monospace', fontSize: '12px',
-                            background: srcSelectedPath === f.path ? '#fffbeb' : 'transparent',
-                            color: srcSelectedPath === f.path ? '#92400e' : '#374151',
-                            border: srcSelectedPath === f.path ? '1px solid #fcd34d' : '1px solid transparent' }}>
-                          {f.label}
-                        </div>
-                      ))}
-                    </>
-                  )}
-                  {docsMode === 'browse' && (
-                    <>
-                      <div style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
-                        letterSpacing: '0.1em', color: '#64748b', marginBottom: '8px' }}>Source Tree</div>
-                      {srcTree.length > 0
-                        ? renderSrcTree(srcTree)
-                        : <div style={{ color: '#94a3b8', fontSize: '12px' }}>{srcLoading ? 'Loading tree…' : 'No files found'}</div>}
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Right: file content */}
-              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', minHeight: '24px', flexShrink: 0 }}>
-                  {srcSelectedPath && (
-                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
-                      letterSpacing: '0.08em', color: '#64748b', fontFamily: 'monospace',
-                      flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {srcSelectedPath}
-                    </span>
-                  )}
-                  {srcContent && (
-                    <button type="button" onClick={() => setSrcFullscreen(true)}
-                      style={{ padding: '3px 10px', fontSize: '12px', fontWeight: 600,
-                        background: '#1e293b', color: '#94a3b8', border: '1px solid #334155',
-                        borderRadius: '5px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                      \u26f6 Full Screen
-                    </button>
-                  )}
-                </div>
-                {srcLoading && !srcContent && (
-                  <div style={{ color: '#64748b', fontSize: '13px' }}>Loading…</div>
-                )}
-                {srcContent ? (
-                  <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '16px', borderRadius: '8px',
-                    fontSize: '12px', lineHeight: '1.65', overflow: 'auto', flex: 1,
-                    whiteSpace: 'pre', margin: 0,
-                    fontFamily: '"Fira Mono", "Cascadia Code", "Consolas", monospace' }}>
-                    {srcContent}
-                  </pre>
-                ) : (
-                  !srcLoading && (
-                    <div style={{ color: '#94a3b8', fontSize: '13px' }}>
-                      {docsMode === 'browse' ? 'Click a file in the tree to view it.' : 'Select a file to view its contents.'}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <DocsSourceModal
+        show={showDocsModal} onClose={() => setShowDocsModal(false)}
+        docsMode={docsMode} switchDocsMode={switchDocsMode}
+        srcError={srcError} srcContent={srcContent} srcSelectedPath={srcSelectedPath}
+        srcLoading={srcLoading} srcTree={srcTree}
+        renderSrcTree={renderSrcTree} setSrcFullscreen={setSrcFullscreen}
+        loadSourceFile={loadSourceFile}
+        TERRAFORM_FILES={TERRAFORM_FILES} DOCKER_FILES={DOCKER_FILES} YAML_FILES={YAML_FILES}
+      />
 
       {/* Source Browser */}
       <section className="panel">
