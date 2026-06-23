@@ -1,3 +1,12 @@
+# ── Stage 1: Build React frontend ──────────────────────────────────────────
+FROM node:20-slim AS frontend-builder
+WORKDIR /frontend
+COPY flask-dynamo-db-frontend/package.json flask-dynamo-db-frontend/package-lock.json ./
+RUN npm ci
+COPY flask-dynamo-db-frontend/ ./
+RUN npm run build
+
+# ── Stage 2: Flask backend ──────────────────────────────────────────
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -21,6 +30,8 @@ COPY flask-dynamo-db-frontend/src /app/flask-dynamo-db-frontend/src
 COPY flask-dynamo-db-frontend/index.html /app/flask-dynamo-db-frontend/index.html
 COPY flask-dynamo-db-frontend/package.json /app/flask-dynamo-db-frontend/package.json
 COPY flask-dynamo-db-frontend/vite.config.js /app/flask-dynamo-db-frontend/vite.config.js
+# Serve the built React app from Flask at /
+COPY --from=frontend-builder /frontend/dist /app/static/react
 
 ENV PORT=4001 \
     AWS_REGION=us-east-1 \
