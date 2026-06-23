@@ -265,6 +265,8 @@ export default function App() {
   const [srcError, setSrcError]             = useState('');
   const [srcTreeLoaded, setSrcTreeLoaded]   = useState(false);
   const [srcQuickFile, setSrcQuickFile]     = useState('README.md');
+  const [srcFullscreen, setSrcFullscreen]   = useState(false);
+  const [showApiModal, setShowApiModal]     = useState(false);
   const [showDocsModal, setShowDocsModal]   = useState(false);
   const [docsMode, setDocsMode]             = useState('readme');
 
@@ -322,6 +324,20 @@ export default function App() {
       setBodyText(prettyJson(defaultBodyFor(selectedId)));
     }
   }, [selectedId]);
+
+  // ESC closes fullscreen file viewer and returns to main page
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === 'Escape' && srcFullscreen) {
+        setSrcFullscreen(false);
+        setSrcContent('');
+        setSrcSelectedPath('');
+        setShowDocsModal(false);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [srcFullscreen]);
 
   // Backend preset switcher
   function setBackendTarget(mode) {
@@ -905,6 +921,12 @@ export default function App() {
           </div>
 
           <div style={{ marginTop: '10px', fontSize: '13px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button type="button"
+              onClick={() => setShowApiModal(true)}
+              style={{ background: 'linear-gradient(135deg,#0f766e,#065f46)', color: '#fff', border: 'none',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              🔬 API Explorer
+            </button>
             <a href={`${normalizedBaseUrl}/api-docs`} target="_blank"
               style={{ background: 'linear-gradient(135deg,#2563eb,#1d4ed8)', color: '#fff',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px',
@@ -970,9 +992,59 @@ export default function App() {
         )}
       </section>
 
-      {/* API Panel */}
-      <section className="panel">
-        <h2>API Explorer</h2>
+      {/* API Explorer Modal */}
+      {showApiModal && (
+        <div className="modal-backdrop" onClick={() => setShowApiModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '760px', width: '95vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div className="modal-header">
+              <h3>🔬 API Explorer</h3>
+              <button type="button" onClick={() => setShowApiModal(false)}>Close</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '20px 24px 24px', flex: 1 }}>
+
+        {/* Auth status bar */}
+        {authToken ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px',
+            padding: '8px 14px', background: '#f0fdf4', border: '1px solid #bbf7d0',
+            borderRadius: '8px', fontSize: '13px' }}>
+            <span style={{ color: '#059669', fontWeight: 700 }}>✅ Authenticated</span>
+            <button type="button" onClick={handleLogout}
+              style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: '12px', fontWeight: 600,
+                background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca',
+                borderRadius: '5px', cursor: 'pointer' }}>
+              Log Out
+            </button>
+          </div>
+        ) : (
+          <details style={{ marginBottom: '16px', padding: '10px 14px', background: '#fefce8',
+            border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px' }}>
+            <summary style={{ fontWeight: 700, color: '#b45309', cursor: 'pointer' }}>
+              ⚠️ Not logged in — expand to log in
+            </summary>
+            <form onSubmit={handleLogin} style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap', marginTop: '10px' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                Email
+                <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)}
+                  autoComplete="username"
+                  style={{ padding: '5px 8px', fontSize: '13px', borderRadius: '5px', border: '1px solid #d1d5db', width: '200px' }} />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: '#374151' }}>
+                Password
+                <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)}
+                  autoComplete="current-password"
+                  style={{ padding: '5px 8px', fontSize: '13px', borderRadius: '5px', border: '1px solid #d1d5db', width: '160px' }} />
+              </label>
+              <button type="submit" disabled={loginLoading}
+                style={{ padding: '6px 16px', fontWeight: 700, fontSize: '13px', background: '#0f766e',
+                  color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>
+                {loginLoading ? 'Logging in...' : 'Log In'}
+              </button>
+              {loginStatus && <span style={{ color: '#b91c1c', fontSize: '12px' }}>{loginStatus}</span>}
+            </form>
+          </details>
+        )}
+
         <form onSubmit={runRequest} className="form">
 
           {/* Backend selector removed from here — now lives in hero */}
@@ -1092,19 +1164,20 @@ export default function App() {
             <button type="button" onClick={() => loadDynamoTables(baseUrl)}>Refresh Tables</button>
           </div>
         </form>
-      </section>
-
-      {/* Response Panel */}
-      <section className="panel result">
-        <h2>Response</h2>
-        <div className="status">Status: {status || 'No request yet'}</div>
+        <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#64748b', marginBottom: '8px' }}>Response</div>
+          <div className="status">Status: {status || 'No request yet'}</div>
         {isLoading && (
           <div className="progress-wrap" aria-live="polite" aria-label="Request in progress">
             <div className="progress-bar" />
           </div>
         )}
-        <pre>{result}</pre>
-      </section>
+          <pre>{result}</pre>
+        </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Loaded Tables */}
       <section className="panel loaded-tables-panel">
@@ -1605,20 +1678,31 @@ export default function App() {
           )}
 
           {/* File content */}
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            {srcSelectedPath && (
-              <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.08em', color: '#64748b', marginBottom: '6px', fontFamily: 'monospace' }}>
-                {srcSelectedPath}
-              </div>
-            )}
+          <div style={{ flex: 1, overflow: 'hidden', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', minHeight: '24px' }}>
+              {srcSelectedPath && (
+                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                  letterSpacing: '0.08em', color: '#64748b', fontFamily: 'monospace',
+                  flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {srcSelectedPath}
+                </span>
+              )}
+              {srcContent && (
+                <button type="button" onClick={() => setSrcFullscreen(true)}
+                  style={{ padding: '3px 10px', fontSize: '12px', fontWeight: 600,
+                    background: '#1e293b', color: '#94a3b8', border: '1px solid #334155',
+                    borderRadius: '5px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                  ⛶ Full Screen
+                </button>
+              )}
+            </div>
             {srcLoading && !srcContent && (
               <div style={{ color: '#64748b', fontSize: '13px', padding: '12px 0' }}>Loading file...</div>
             )}
             {srcContent ? (
               <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '16px', borderRadius: '8px',
                 fontSize: '12px', lineHeight: '1.65', overflow: 'auto', maxHeight: '520px',
-                whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+                whiteSpace: 'pre', margin: 0,
                 fontFamily: '"Fira Mono", "Cascadia Code", "Consolas", monospace' }}>
                 {srcContent}
               </pre>
@@ -1717,6 +1801,36 @@ export default function App() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+      {/* Fullscreen file viewer */}
+      {srcFullscreen && srcContent && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(2,6,23,0.97)',
+          display: 'flex', flexDirection: 'column', padding: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px', flexShrink: 0 }}>
+            <span style={{ color: '#94a3b8', fontFamily: '"Fira Mono", monospace', fontSize: '13px',
+              flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {srcSelectedPath}
+            </span>
+            <span style={{ color: '#475569', fontSize: '12px' }}>ESC to close</span>
+            <button type="button" onClick={() => {
+                setSrcFullscreen(false);
+                setSrcContent('');
+                setSrcSelectedPath('');
+                setShowDocsModal(false);
+              }}
+              style={{ padding: '5px 16px', fontSize: '13px', fontWeight: 700,
+                background: '#ef4444', color: '#fff', border: 'none',
+                borderRadius: '6px', cursor: 'pointer' }}>
+              ✕ Close
+            </button>
+          </div>
+          <pre style={{ flex: 1, background: '#0f172a', color: '#e2e8f0', padding: '20px',
+            borderRadius: '8px', fontSize: '13px', lineHeight: '1.65',
+            overflow: 'auto', margin: 0, whiteSpace: 'pre',
+            fontFamily: '"Fira Mono", "Cascadia Code", "Consolas", monospace' }}>
+            {srcContent}
+          </pre>
         </div>
       )}
     </main>
