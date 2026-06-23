@@ -112,3 +112,9 @@ variable "github_branch" {
   type        = string
   default     = "master"
 }
+
+variable "assign_public_ip" {
+  description = "Assign a public IP to ECS tasks (required when using public subnets without a NAT gateway)"
+  type        = bool
+  default     = false
+}

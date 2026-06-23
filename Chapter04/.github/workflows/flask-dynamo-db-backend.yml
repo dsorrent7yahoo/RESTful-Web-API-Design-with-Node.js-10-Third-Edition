@@ -14,10 +14,11 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  ECR_REPOSITORY: chapter04-flask-dynamo-db-backend
-  ECS_CLUSTER: chapter04-flask-cluster
-  ECS_SERVICE: chapter04-flask-service
-  CONTAINER_NAME: chapter04-flask-api
+  ECR_REPOSITORY: chapter04-flask-repo        # terraform output: ecr_repository_url (repo name only)
+  ECS_CLUSTER: chapter04-flask-cluster        # terraform output: ecs_cluster_name
+  ECS_SERVICE: chapter04-flask-service        # terraform output: ecs_service_name
+  ECS_TASK_FAMILY: chapter04-flask-task       # terraform output: ecs_task_family
+  CONTAINER_NAME: chapter04-flask-api         # terraform output: container_name
 
 jobs:
   # ── Test ───────────────────────────────────────────────────────────────────
@@ -119,7 +120,7 @@ jobs:
       - name: Fetch current task definition
         run: |
           aws ecs describe-task-definition \
-            --task-definition "${{ env.ECS_CLUSTER }}-task" \
+            --task-definition "${{ env.ECS_TASK_FAMILY }}" \
             --query taskDefinition \
             > task-definition.json
 
