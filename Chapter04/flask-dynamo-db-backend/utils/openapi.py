@@ -125,7 +125,21 @@ def build_swagger_ui_html():
         gap: 12px;
       }
       #token-bar a { color: #7dd3fc; text-decoration: none; }
-      #token-status { margin-left: auto; opacity: 0.75; }
+      #token-status { opacity: 0.75; }
+      #close-btn {
+        margin-left: auto;
+        background: #374151;
+        color: #fff;
+        border: 1px solid #6b7280;
+        border-radius: 6px;
+        padding: 4px 14px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        transition: background 120ms;
+      }
+      #close-btn:hover { background: #4b5563; }
     </style>
   </head>
   <body>
@@ -134,6 +148,10 @@ def build_swagger_ui_html():
       &mdash;
       <a href="/">Login / Register</a>
       <span id="token-status">Checking token&hellip;</span>
+      <button id="close-btn" title="Close this tab and return to the app"
+        onclick="window.opener ? window.close() : window.history.back()">
+        ✕ Close
+      </button>
     </div>
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
