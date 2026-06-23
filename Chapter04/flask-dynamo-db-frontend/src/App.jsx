@@ -100,6 +100,9 @@ const BACKEND_PRESETS = {
   aws:     'http://sorrentino-fargate-fhir-demo-alb-1996236158.us-east-1.elb.amazonaws.com', // AWS Fargate ALB
 };
 
+// True when the page is served from the Fargate ALB (not localhost)
+const IS_FARGATE = window.location.hostname === new URL(BACKEND_PRESETS.aws).hostname;
+
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
@@ -203,8 +206,8 @@ export default function App() {
   const [loginStatus, setLoginStatus]           = useState('');
   const [loginLoading, setLoginLoading]         = useState(false);
 
-  const [baseUrl, setBaseUrl]                   = useState(BACKEND_PRESETS.cmdline);
-  const [backendMode, setBackendMode]           = useState('cmdline');
+  const [baseUrl, setBaseUrl]                   = useState(IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline);
+  const [backendMode, setBackendMode]           = useState(IS_FARGATE ? 'aws' : 'cmdline');
   const [selectedId, setSelectedId]             = useState('getAll');
   const [medicationId, setMedicationId]         = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -884,14 +887,14 @@ export default function App() {
           <div style={{ marginTop: '16px' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#0f766e', marginBottom: '8px' }}>Connect to backend</div>
             <div className="backend-group" role="group" aria-label="Backend target">
-              <button type="button" className={backendMode === 'cmdline' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('cmdline')}>
+              <button type="button" className={backendMode === 'cmdline' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('cmdline')} disabled={IS_FARGATE} title={IS_FARGATE ? 'Local computer only' : undefined}>
                 Command Line
               </button>
-              <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')}>
+              <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={IS_FARGATE} title={IS_FARGATE ? 'Local computer only' : undefined}>
                 Docker
               </button>
-              <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')}>
-                AWS Fargate
+              <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => { if (!IS_FARGATE) setBackendTarget('aws'); }} style={IS_FARGATE ? {cursor:'default'} : {}}>
+                AWS Fargate{IS_FARGATE ? ' ✓' : ''}
               </button>
             </div>
             <div style={{ fontSize: '12px', color: '#475569', marginTop: '6px' }}>
