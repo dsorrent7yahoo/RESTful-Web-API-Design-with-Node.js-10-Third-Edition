@@ -9,14 +9,14 @@ from flask import Blueprint, jsonify, render_template, send_from_directory
 login_bp = Blueprint("login", __name__)
 
 # Populated by Dockerfile: COPY --from=frontend-builder /frontend/dist /app/static/react
-REACT_DIST = os.path.join(os.path.dirname(__file__), '..', 'static', 'react')
+REACT_DIST = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static', 'react'))
 
 
 @login_bp.route("/", methods=["GET"])
 def index():
     """Serve the React SPA. Falls back to Flask login template if dist not built."""
     react_index = os.path.join(REACT_DIST, 'index.html')
-    if os.path.exists(react_index):
+    if os.path.isfile(react_index):
         return send_from_directory(REACT_DIST, 'index.html')
     return render_template("index.html")
 
