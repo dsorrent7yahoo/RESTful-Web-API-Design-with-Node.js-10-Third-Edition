@@ -1573,20 +1573,31 @@ export default function App() {
               )}
 
               {/* Right: file content */}
-              <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                {srcSelectedPath && (
-                  <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
-                    letterSpacing: '0.08em', color: '#64748b', marginBottom: '6px', fontFamily: 'monospace', flexShrink: 0 }}>
-                    {srcSelectedPath}
-                  </div>
-                )}
+              <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', minHeight: '24px', flexShrink: 0 }}>
+                  {srcSelectedPath && (
+                    <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                      letterSpacing: '0.08em', color: '#64748b', fontFamily: 'monospace',
+                      flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {srcSelectedPath}
+                    </span>
+                  )}
+                  {srcContent && (
+                    <button type="button" onClick={() => setSrcFullscreen(true)}
+                      style={{ padding: '3px 10px', fontSize: '12px', fontWeight: 600,
+                        background: '#1e293b', color: '#94a3b8', border: '1px solid #334155',
+                        borderRadius: '5px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                      \u26f6 Full Screen
+                    </button>
+                  )}
+                </div>
                 {srcLoading && !srcContent && (
                   <div style={{ color: '#64748b', fontSize: '13px' }}>Loading…</div>
                 )}
                 {srcContent ? (
                   <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: '16px', borderRadius: '8px',
                     fontSize: '12px', lineHeight: '1.65', overflow: 'auto', flex: 1,
-                    whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0,
+                    whiteSpace: 'pre', margin: 0,
                     fontFamily: '"Fira Mono", "Cascadia Code", "Consolas", monospace' }}>
                     {srcContent}
                   </pre>
