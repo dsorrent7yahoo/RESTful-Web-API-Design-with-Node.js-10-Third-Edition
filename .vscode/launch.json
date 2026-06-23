@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Attach Spring Backend Debug (5005)",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5005,
+      "preLaunchTask": "Spring Backend: Debug (8080)"
+    },
+    {
+      "type": "java",
+      "name": "Attach Spring Backend Debug Standalone (5006)",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5006,
+      "preLaunchTask": "Spring Backend: Debug Standalone (8081)"
+    }
+  ]
+}

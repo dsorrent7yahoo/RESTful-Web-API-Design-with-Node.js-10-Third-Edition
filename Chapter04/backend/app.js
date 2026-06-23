@@ -15,12 +15,9 @@ app.use(bodyParser.json());
 
 // CORS middleware - allow localhost dev tools on any port
 app.use(function(req, res, next) {
-  var origin = req.headers.origin || '';
-  if (/^http:\/\/localhost:\d+$/.test(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
   }

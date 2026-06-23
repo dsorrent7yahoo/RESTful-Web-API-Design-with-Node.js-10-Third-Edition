@@ -1,0 +1,49 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Spring Backend: Run (8080)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Run Standalone (8081)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.arguments=--server.port=8081"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Debug (8080)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.jvmArguments=\"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005\""
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Debug Standalone (8081)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.arguments=--server.port=8081 -Dspring-boot.run.jvmArguments=\"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006\""
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

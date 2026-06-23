@@ -1,5 +1,6 @@
 const model = require('../model/item.js');
 const CatalogItem = model.CatalogItem;
+const ensureConnected = model.ensureConnected;
 const contentTypeJson = {
 	'Content-Type' : 'application/json'
 };
@@ -9,6 +10,7 @@ const contentTypePlainText = {
 
 exports.findAllItems = async function(response) {
 	try {
+		await ensureConnected();
 		const result = await CatalogItem.find({});
 		if (result != null) {
 			response.json(result);
@@ -25,6 +27,7 @@ exports.findAllItems = async function(response) {
 
 exports.findItemById = async function(itemId, response) {
 	try {
+		await ensureConnected();
 		const result = await CatalogItem.findOne({itemId: itemId});
 		if (!result) {
 			if (response != null) {
@@ -47,6 +50,7 @@ exports.findItemById = async function(itemId, response) {
 
 exports.findItemsByCategory = async function(category, response) {
 	try {
+		await ensureConnected();
 		const result = await CatalogItem.find({categories: category});
 		if (!result) {
 			if (response != null) {
@@ -70,6 +74,7 @@ exports.findItemsByCategory = async function(category, response) {
 exports.saveItem = async function(request, response) {
 	var item = toItem(request.body);
 	try {
+		await ensureConnected();
 		var existing = await CatalogItem.findOne({itemId: item.itemId});
 		if (!existing) {
 			await item.save();
@@ -96,6 +101,7 @@ exports.saveItem = async function(request, response) {
 exports.remove = async function(request, response) {
 	console.log('Deleting item with id: ' + request.params.itemId);
 	try {
+		await ensureConnected();
 		var data = await CatalogItem.findOneAndDelete({itemId: request.params.itemId});
 		if (!data) {
 			console.log('Item not found');

@@ -1,0 +1,52 @@
+# Copy to terraform.tfvars and fill in your values.
+# Never commit terraform.tfvars — it is listed in .gitignore.
+
+aws_region  = "us-east-1"
+name_prefix = "chapter04-flask"
+
+# ── GitHub OIDC ───────────────────────────────────────────────────────────────
+# The owner/repo that GitHub Actions will use to assume the IAM role.
+github_repository = "PacktPublishing/RESTful-Web-API-Design-with-Node.js-10-Third-Edition"
+github_branch     = "dynamodb-react"
+
+# ── Networking ────────────────────────────────────────────────────────────────
+vpc_id             = "vpc-xxxxxxxx"
+public_subnet_ids  = ["subnet-public-a", "subnet-public-b"]
+private_subnet_ids = ["subnet-private-a", "subnet-private-b"]
+
+alb_ingress_cidr_blocks = ["0.0.0.0/0"]
+
+# ── Container ─────────────────────────────────────────────────────────────────
+container_port    = 4001
+health_check_path = "/health"
+
+container_environment = {
+  PORT                     = "4001"
+  AWS_REGION               = "us-east-1"
+  DYNAMODB_TABLE           = "medications"
+  AUTO_CREATE_CSV_TABLES   = "true"
+  JWT_EXP_MINUTES          = "60"
+  APPROVAL_TOKEN_TTL_HOURS = "48"
+  SMTP_HOST                = "smtp.gmail.com"
+  SMTP_PORT                = "587"
+  SMTP_USE_TLS             = "true"
+  SMTP_FROM_EMAIL          = "no-reply@example.com"
+  APPROVER_EMAIL           = "your-email@example.com"
+}
+
+# ARNs for secrets stored in SSM Parameter Store or AWS Secrets Manager.
+# The value must be the full ARN of the parameter / secret.
+container_secrets = {
+  JWT_SECRET    = "arn:aws:ssm:us-east-1:123456789012:parameter/chapter04/flask/JWT_SECRET"
+  SMTP_USER     = "arn:aws:ssm:us-east-1:123456789012:parameter/chapter04/flask/SMTP_USER"
+  SMTP_PASSWORD = "arn:aws:secretsmanager:us-east-1:123456789012:secret:chapter04/flask/SMTP_PASSWORD-xxxxxx"
+}
+
+# ── ECS / Fargate ─────────────────────────────────────────────────────────────
+ecs_task_cpu    = 512
+ecs_task_memory = 1024
+desired_count   = 1
+
+# ── ECR ───────────────────────────────────────────────────────────────────────
+ecr_image_tag_mutability = "MUTABLE"
+image_tag                = "latest"

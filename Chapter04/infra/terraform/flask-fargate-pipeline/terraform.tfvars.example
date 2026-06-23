@@ -1,0 +1,37 @@
+aws_region                 = "us-east-1"
+name_prefix                = "chapter04-flask"
+github_connection_arn      = "arn:aws:codestar-connections:us-east-1:123456789012:connection/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+github_full_repository_id  = "your-org/your-repo"
+github_branch              = "master"
+
+vpc_id             = "vpc-xxxxxxxx"
+public_subnet_ids  = ["subnet-public-a", "subnet-public-b"]
+private_subnet_ids = ["subnet-private-a", "subnet-private-b"]
+
+alb_ingress_cidr_blocks = ["0.0.0.0/0"]
+
+container_port   = 4001
+ecs_task_cpu     = 512
+ecs_task_memory  = 1024
+desired_count    = 1
+health_check_path = "/health"
+
+container_environment = {
+  PORT                   = "4001"
+  AWS_REGION             = "us-east-1"
+  DYNAMODB_TABLE         = "medications"
+  AUTO_CREATE_CSV_TABLES = "true"
+  APPROVER_EMAIL         = "dsorrent7@gmail.com"
+  SMTP_HOST              = "smtp.gmail.com"
+  SMTP_PORT              = "587"
+  SMTP_USE_TLS           = "true"
+  SMTP_FROM_EMAIL        = "no-reply@example.com"
+  JWT_EXP_MINUTES        = "60"
+  APPROVAL_TOKEN_TTL_HOURS = "48"
+}
+
+container_secrets = {
+  JWT_SECRET    = "arn:aws:ssm:us-east-1:123456789012:parameter/chapter04/flask/JWT_SECRET"
+  SMTP_USER     = "arn:aws:ssm:us-east-1:123456789012:parameter/chapter04/flask/SMTP_USER"
+  SMTP_PASSWORD = "arn:aws:secretsmanager:us-east-1:123456789012:secret:chapter04/flask/SMTP_PASSWORD-xxxxxx"
+}

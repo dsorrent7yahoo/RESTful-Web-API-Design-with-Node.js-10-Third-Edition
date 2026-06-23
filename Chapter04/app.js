@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var swaggerUi = require('swagger-ui-express');
 var openApiSpec = require('./openapi.json');
+var flaskSwaggerUrl = process.env.FLASK_SWAGGER_URL || 'http://127.0.0.1:4001/api-docs';
 
 var routes = require('./routes/index');
 var catalog = require('./routes/catalog');
@@ -26,12 +27,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // CORS middleware for local frontend (Vite)
 app.use(function(req, res, next) {
-  var origin = req.headers.origin || '';
-  if (/^http:\/\/localhost:\d+$/.test(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  }
+  res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.sendStatus(204);
@@ -44,6 +42,9 @@ app.use('/', routes);
 app.use('/catalog', catalog);
 app.get('/openapi.json', function(req, res) {
   res.json(openApiSpec);
+});
+app.get('/api-docs/flask', function(req, res) {
+  res.redirect(302, flaskSwaggerUrl);
 });
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
 

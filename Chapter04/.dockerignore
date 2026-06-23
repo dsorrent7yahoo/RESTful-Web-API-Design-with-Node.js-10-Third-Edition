@@ -8,3 +8,16 @@
 .gitignore
 .vscode
 coherent-11-07-2022/dicom
+
+# Not needed inside the Flask container
+fhirstarters/
+spring-boot-react-frontend/
+dynamo-db-frontend/
+flask-dynamo-db-frontend/
+dynamo-db-backend/
+backend/
+infra/
+test/
+model/
+modules/
+routes/

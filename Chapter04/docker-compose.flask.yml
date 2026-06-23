@@ -1,0 +1,36 @@
+services:
+  flask-backend:
+    build:
+      context: .                              # must be run from Chapter04/
+      dockerfile: flask-dynamo-db-backend/Dockerfile
+    image: chapter04-flask-dynamo-db-backend:local
+    container_name: flask-dynamo-db-backend
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: "4001"
+      AWS_REGION: "us-east-1"
+      DYNAMODB_TABLE: "medications"
+      AUTO_CREATE_CSV_TABLES: "true"
+      # JWT secret — override in .env or environment
+      JWT_SECRET: "${JWT_SECRET:-health-care-dev-secret}"
+      # SMTP (optional — only needed for registration emails)
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-}"
+      APPROVER_EMAIL: "${APPROVER_EMAIL:-}"
+      # AWS credentials — pulled from your host environment or ~/.aws
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
+    volumes:
+      # Mount host AWS credentials so the container can reach DynamoDB.
+      # Remove this block if you set AWS_ACCESS_KEY_ID/SECRET above instead.
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4001/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

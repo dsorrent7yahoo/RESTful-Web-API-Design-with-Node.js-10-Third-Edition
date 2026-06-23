@@ -41,6 +41,11 @@ textarea {
   backdrop-filter: blur(12px);
 }
 
+.loaded-tables-panel {
+  grid-column: 1 / -1;
+}
+
+
 .hero {
   grid-column: 1 / -1;
   display: flex;
@@ -327,17 +332,19 @@ th {
   margin: 0;
   display: grid;
   gap: 8px;
+  width: 100%;
 }
 
 .dynamo-table-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  width: 100%;
 }
 
 .dynamo-table-name {
   flex: 1 1 calc((100% - 40px) / 5);
-  min-width: 150px;
+  min-width: 170px;
   font-family: Consolas, 'Courier New', monospace;
   font-size: 14px;
   color: #1f2937;

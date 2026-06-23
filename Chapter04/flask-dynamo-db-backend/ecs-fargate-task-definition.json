@@ -1,0 +1,51 @@
+{
+	"family": "flask-dynamo-db-backend",
+	"networkMode": "awsvpc",
+	"requiresCompatibilities": [
+		"FARGATE"
+	],
+	"cpu": "512",
+	"memory": "1024",
+	"executionRoleArn": "arn:aws:iam::005905648819:role/ecsTaskExecutionRole",
+	"taskRoleArn": "arn:aws:iam::005905648819:role/ecs-fargate-cluster-task-role",
+	"containerDefinitions": [
+		{
+			"name": "flask-dynamo-db-backend",
+			"image": "005905648819.dkr.ecr.us-east-1.amazonaws.com/chapter04-flask-dynamo-db-backend:latest",
+			"essential": true,
+			"portMappings": [
+				{
+					"containerPort": 4001,
+					"hostPort": 4001,
+					"protocol": "tcp"
+				}
+			],
+			"environment": [
+				{
+					"name": "PORT",
+					"value": "4001"
+				},
+				{
+					"name": "AWS_REGION",
+					"value": "us-east-1"
+				},
+				{
+					"name": "DYNAMODB_TABLE",
+					"value": "medications"
+				},
+				{
+					"name": "AUTO_CREATE_CSV_TABLES",
+					"value": "true"
+				}
+			],
+			"logConfiguration": {
+				"logDriver": "awslogs",
+				"options": {
+					"awslogs-group": "/ecs/flask-dynamo-db-backend",
+					"awslogs-region": "us-east-1",
+					"awslogs-stream-prefix": "ecs"
+				}
+			}
+		}
+	]
+}

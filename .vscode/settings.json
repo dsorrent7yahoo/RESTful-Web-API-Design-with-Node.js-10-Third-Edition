@@ -1,3 +1,22 @@
 {
-    "git.ignoreLimitWarning": true
+    "git.ignoreLimitWarning": true,
+    "java.jdt.ls.java.home": "C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-17",
+            "path": "C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8",
+            "default": true
+        }
+    ],
+    "maven.terminal.customEnv": [
+        {
+            "environmentVariable": "JAVA_HOME",
+            "value": "C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8"
+        }
+    ],
+    "githubPullRequests.remotes": [],
+    "terminal.integrated.env.windows": {
+        "JAVA_HOME": "C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8",
+        "PATH": "C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;${env:PATH}"
+    }
 }

@@ -189,10 +189,19 @@ export default function App() {
     [selectedId]
   );
 
+  function getAuthToken() {
+    return localStorage.getItem('healthCareToken') || '';
+  }
+
+  function authHeaders(extra = {}) {
+    const token = getAuthToken();
+    return token ? { Authorization: `Bearer ${token}`, ...extra } : { ...extra };
+  }
+
   async function loadDynamoTables(currentBaseUrl) {
     try {
       const normalizedBase = (currentBaseUrl || baseUrl).trim().replace(/\/$/, '');
-      const response = await fetch(`${normalizedBase}/tables`);
+      const response = await fetch(`${normalizedBase}/tables`, { headers: authHeaders() });
       if (!response.ok) return;
       const data = await response.json();
       setDynamoTables(Array.isArray(data.tables) ? data.tables.sort() : []);
@@ -204,7 +213,7 @@ export default function App() {
   async function loadOptions(currentBaseUrl) {
     try {
       const normalizedBase = currentBaseUrl.trim().replace(/\/$/, '');
-      const response = await fetch(`${normalizedBase}/medications/?limit=250`);
+      const response = await fetch(`${normalizedBase}/medications/?limit=250`, { headers: authHeaders() });
 
       if (!response.ok) {
         return;
@@ -374,7 +383,7 @@ export default function App() {
 
     const normalizedBase = baseUrl.trim().replace(/\/$/, '');
     const url = normalizedBase + resolvedPath + requestQueryString;
-    const options = { method: selected.method, headers: {} };
+    const options = { method: selected.method, headers: authHeaders() };
 
     if (selected.needsFileUpload) {
       const payload = {};
@@ -432,7 +441,7 @@ export default function App() {
           originalPayload.replaceExistingTable = true;
           response = await fetch(url, {
             method: selected.method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(originalPayload)
           });
           responseText = await response.text();
@@ -523,7 +532,7 @@ export default function App() {
 
       let response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(payload),
         signal: controller.signal
       });
@@ -553,7 +562,7 @@ export default function App() {
 
         response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify(payload),
           signal: replaceController.signal
         });
@@ -594,7 +603,7 @@ export default function App() {
       <section className="hero panel">
         <div>
           <p className="eyebrow">Chapter04 DynamoDB</p>
-          <h1>DynamoDB Medication API Client</h1>
+          <h1>FHIR API Test Client</h1>
           <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
         </div>
         <div className="hero-badge">
@@ -632,7 +641,8 @@ export default function App() {
         {isLoading && (
           <div className="progress-wrap" aria-live="polite" aria-label="Request in progress">
             <div className="progress-bar" />
-          </div>
+              <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
+              <span>{isLoading ? 'Request in progress...' : 'Ready'}</span>
         )}
         <pre>{result}</pre>
       </section>
@@ -658,7 +668,7 @@ export default function App() {
               </label>
               <label>
                 Choose a file to upload to DynamoDB
-                <input type="file" accept=".csv,text/csv" onChange={handleFileSelection} />
+                <input value={baseUrl} onChange={handleBaseUrlChange} />
               </label>
               <div className="meta">
                 {selectedFileName ? `Selected: ${selectedFileName}` : 'No file selected — backend default path will be used'}

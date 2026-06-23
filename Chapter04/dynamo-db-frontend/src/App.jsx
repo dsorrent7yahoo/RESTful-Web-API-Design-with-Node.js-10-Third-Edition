@@ -166,7 +166,7 @@ function chunkTableNames(tableNames, chunkSize) {
 }
 
 const BACKEND_PRESETS = {
-  aws: 'http://3.87.73.29:4001',
+  aws: 'http://100.24.24.190:4001',
   docker: 'http://localhost:4001',
   standalone: 'http://localhost:4002'
 };
@@ -653,17 +653,12 @@ export default function App() {
     <main className="page">
       <section className="hero panel">
         <div>
-          <h1>DynamoDB Medication API Client</h1>
+          <h1>FHIR API Test Client</h1>
           <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
           <div className="hero-status" aria-live="polite">
             <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
             <span>{isLoading ? 'Request in progress...' : 'Ready'}</span>
           </div>
-          {isLoading && (
-            <div className="progress-wrap" aria-label="Header request progress">
-              <div className="progress-bar" />
-            </div>
-          )}
         </div>
         <div className="hero-badge">
           <span>Backend</span>
@@ -688,7 +683,6 @@ export default function App() {
           </div>
           <div className="meta">Default is Docker. Use Standalone for local port 4002 and AWS for the deployed Fargate backend.</div>
           <label>
-            Server URL
             <input value={baseUrl} onChange={handleBaseUrlChange} />
           </label>
           <label>
@@ -776,6 +770,31 @@ export default function App() {
         <pre>{result}</pre>
       </section>
 
+      <section className="panel loaded-tables-panel">
+        <h2>Loaded Tables</h2>
+        <div className="meta">Tables loaded from the current backend. Use Refresh Table List after switching Docker or AWS.</div>
+        {dynamoTables.length === 0 ? (
+          <div className="meta" style={{ marginTop: '12px' }}>No tables loaded yet.</div>
+        ) : (
+          <div className="dynamo-table-grid" aria-label="DynamoDB table names" style={{ marginTop: '12px' }}>
+            {dynamoTableRows.map((row, rowIndex) => (
+              <div className="dynamo-table-row" key={`row-${rowIndex}`}>
+                {row.map((tableName) => (
+                  <span className="dynamo-table-name" key={tableName}>{tableName}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+        <button
+          type="button"
+          style={{ marginTop: '0.75rem' }}
+          onClick={() => loadDynamoTables(baseUrl)}
+        >
+          Refresh Table List
+        </button>
+      </section>
+
       {showLoaderModal && (
         <div className="modal-backdrop" onClick={closeLoaderModal}>
           <div className="modal-card" onClick={(event) => event.stopPropagation()}>
@@ -813,11 +832,12 @@ export default function App() {
                 <div className="meta" style={{ color: '#b45309' }}>Table name will be auto-generated from file name.</div>
               )}
 
-              <h3 style={{ marginTop: '1rem' }}>DynamoDB Tables</h3>
+              <h3 style={{ marginTop: '1rem' }}>Loaded Tables</h3>
+              <div className="meta">Tables loaded from the current backend. Use Refresh Table List after switching Docker or AWS.</div>
               {dynamoTables.length === 0 ? (
-                <div className="meta">No tables loaded yet. Upload a CSV or click refresh.</div>
+                <div className="meta" style={{ marginTop: '12px' }}>No tables loaded yet.</div>
               ) : (
-                <div className="dynamo-table-grid" aria-label="DynamoDB table names">
+                <div className="dynamo-table-grid" aria-label="DynamoDB table names" style={{ marginTop: '12px' }}>
                   {dynamoTableRows.map((row, rowIndex) => (
                     <div className="dynamo-table-row" key={`row-${rowIndex}`}>
                       {row.map((tableName) => (
