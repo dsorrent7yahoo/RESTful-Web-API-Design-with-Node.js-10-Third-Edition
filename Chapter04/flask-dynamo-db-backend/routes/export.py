@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 routes/export.py
 Blueprint for DynamoDB → S3 export and Glue Data Catalog registration.
@@ -558,22 +559,15 @@ def upload_csvs_to_glue():
     """
     import csv as csv_mod
     import io
+    import pathlib
 
     database      = str(request.form.get("database", "healthcare_data_lake")).strip()
     bucket        = str(request.form.get("bucket", "dgs-glue-staging")).strip()
     prefix_root   = str(request.form.get("prefix", "datalake/")).strip().rstrip("/") + "/"
     create_db     = request.form.get("createDatabase", "true").lower() not in ("false", "0")
-    create_bucket = request.form.get("createBucket", "false").lower() in ("true", "1")
 
     if not bucket:
         return jsonify({"status": "error", "message": "bucket is required"}), 400
-
-    # Create the S3 bucket if requested
-    if create_bucket:
-        try:
-            _exporter.create_bucket_if_missing(bucket)
-        except Exception as exc:
-            return jsonify({"status": "error", "message": f"Could not create bucket '{bucket}': {exc}"}), 500
 
     uploaded_files = request.files.getlist("files[]")
     if not uploaded_files:

@@ -1,3 +1,4 @@
+# Databricks notebook source
 import os
 
 from dotenv import load_dotenv
@@ -75,6 +76,16 @@ def handle_exception(error):
     return jsonify({"message": str(error), "error": {}}), 500
 
 
+def _ensure_glue_staging_bucket():
+    """Create the Glue staging bucket once at startup if it does not exist."""
+    try:
+        from tools.aws_export import DynamoToS3Exporter
+        bucket = os.getenv("GLUE_STAGING_BUCKET", "dgs-glue-staging")
+        DynamoToS3Exporter().create_bucket_if_missing(bucket)
+    except Exception as exc:
+        print(f"[startup] Warning: could not ensure staging bucket exists: {exc}")
+
+
 if __name__ == "__main__":
     apply_startup_overrides_from_args()
     ensure_default_csv_tables_exist()
@@ -82,5 +93,6 @@ if __name__ == "__main__":
     auth.ensure_users_table_exists()
     auth.ensure_pending_users_table_exists()
     auth.ensure_default_user_exists()
+    _ensure_glue_staging_bucket()
     port = int(os.getenv("PORT", "4001"))
     app.run(host="0.0.0.0", port=port)

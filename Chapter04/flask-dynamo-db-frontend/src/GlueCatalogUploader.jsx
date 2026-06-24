@@ -6,7 +6,6 @@ const statusBg    = (s) => s === 'ok' ? '#f0fdf4' : '#fef2f2';
 export default function GlueCatalogUploader({ show, onClose, baseUrl, authToken, buckets = [] }) {
   const [database,     setDatabase]     = useState('healthcare_data_lake');
   const [bucket,       setBucket]       = useState('dgs-glue-staging');
-  const [createBucket, setCreateBucket] = useState(true);
   const [prefix,       setPrefix]       = useState('datalake/');
   const [files,        setFiles]        = useState([]);
   const [loading,      setLoading]      = useState(false);
@@ -38,7 +37,6 @@ export default function GlueCatalogUploader({ show, onClose, baseUrl, authToken,
     form.append('bucket',         bucket.trim());
     form.append('prefix',         prefix.trim());
     form.append('createDatabase', 'true');
-    form.append('createBucket',   createBucket ? 'true' : 'false');
     files.forEach(f => form.append('files[]', f));
     try {
       const resp = await fetch(baseUrl + '/upload/glue-csv', {
@@ -110,13 +108,6 @@ export default function GlueCatalogUploader({ show, onClose, baseUrl, authToken,
                 <input value={bucket} onChange={(e) => setBucket(e.target.value)}
                   placeholder="e.g. dgs-glue-staging" />
               )}
-            </label>
-            <label style={{ flexDirection: 'row', alignItems: 'center', gap: '8px',
-              fontWeight: 'normal', fontSize: '13px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={createBucket}
-                onChange={(e) => setCreateBucket(e.target.checked)}
-                style={{ width: 'auto', margin: 0 }} />
-              Create bucket if it does not exist
             </label>
             <label>
               Glue Database Name
