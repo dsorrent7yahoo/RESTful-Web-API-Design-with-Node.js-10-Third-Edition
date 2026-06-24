@@ -4,7 +4,7 @@ const statusColor = (s) => s === 'ok' ? '#0f766e' : '#b91c1c';
 const statusBg    = (s) => s === 'ok' ? '#f0fdf4' : '#fef2f2';
 
 export default function GlueCatalogUploader({ show, onClose, baseUrl, authToken, buckets = [] }) {
-  const [database,     setDatabase]     = useState('healthcare_data_lake');
+  const [database,     setDatabase]     = useState('fhir-table-db');
   const [bucket,       setBucket]       = useState('dgs-glue-staging');
   const [prefix,       setPrefix]       = useState('datalake/');
   const [files,        setFiles]        = useState([]);
