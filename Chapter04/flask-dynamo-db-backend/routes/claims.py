@@ -27,38 +27,31 @@ def _lambda_dir():
 @claims_bp.post("/claims/generate")
 @jwt_required
 def generate_claims():
-    """Run synthetic_fhir_claims then claims_cleaner in-process pipeline."""
+    """Run synthetic_fhir_claims lambda only — generates raw CSV with intentional missing dates."""
     _lambda_dir()
-
-    # Step 1 — generate CSV
     import synthetic_fhir_claims as _gen
     importlib.reload(_gen)
     gen_result = _gen.lambda_handler({}, None)
     if gen_result.get("statusCode") != 200:
         return jsonify(gen_result), 500
-
-    # Step 2 — clean + register in Glue automatically
-    try:
-        import claims_cleaner as _clean
-        importlib.reload(_clean)
-        clean_result = _clean.lambda_handler(
-            {"bucket": gen_result["bucket"], "key": gen_result["key"]}, None
-        )
-    except Exception as exc:
-        clean_result = {"statusCode": 500, "error": str(exc)}
-
-    return jsonify({**gen_result, "clean": clean_result})
+    return jsonify(gen_result)
 
 
 @claims_bp.post("/claims/clean")
 @jwt_required
 def clean_claims():
-    """Run claims_cleaner lambda in-process on the given CSV key."""
+    """Run claims_cleaner lambda — cleans CSV + registers in Glue catalog.
+    If no key provided, automatically uses the most recent CSV in S3."""
     data   = request.get_json(force=True) or {}
     key    = data.get("key") or request.args.get("key", "").strip()
     bucket = data.get("bucket", BUCKET)
     if not key:
-        return jsonify({"status": "error", "message": "key is required"}), 400
+        s3   = boto3.client("s3", region_name=REGION)
+        resp = s3.list_objects_v2(Bucket=bucket, Prefix=CLAIMS_PREFIX)
+        objs = sorted(resp.get("Contents", []), key=lambda x: x["LastModified"], reverse=True)
+        if not objs:
+            return jsonify({"status": "error", "message": "no CSV files found in S3"}), 404
+        key = objs[0]["Key"]
     _lambda_dir()
     import claims_cleaner as _mod
     importlib.reload(_mod)

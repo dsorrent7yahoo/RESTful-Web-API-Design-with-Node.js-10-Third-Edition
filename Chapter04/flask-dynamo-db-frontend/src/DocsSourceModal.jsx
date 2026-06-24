@@ -22,6 +22,7 @@ export default function DocsSourceModal({
         {/* Mode selector tabs */}
         <div style={{ display: 'flex', gap: '6px', padding: '10px 0 12px', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
           {[
+            { mode: 'deploy',    label: '🚀 Deploy Guide',     color: '#be123c' },
             { mode: 'readme',    label: '📖 README',          color: '#7c3aed' },
             { mode: 'terraform', label: '🏗️ Terraform',       color: '#0f766e' },
             { mode: 'docker',    label: '🐳 Docker / Fargate', color: '#0369a1' },
@@ -49,7 +50,7 @@ export default function DocsSourceModal({
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', gap: '14px', minHeight: 0, paddingTop: '10px' }}>
 
           {/* Left panel */}
-          {docsMode !== 'readme' && (
+          {docsMode !== 'readme' && docsMode !== 'deploy' && (
             <div style={{ width: '230px', flexShrink: 0, overflowY: 'auto',
               borderRight: '1px solid #e2e8f0', paddingRight: '10px', fontSize: '12.5px', lineHeight: '1.6' }}>
               {docsMode === 'terraform' && (

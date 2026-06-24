@@ -62,7 +62,7 @@ npm run dev          # → http://localhost:5173
 
 **Option B — Served by Docker (production build bundled into Flask)**
 ```bash
-# From Chapter04/ — starts Flask + DynamoDB Local + Admin UI
+# From the project root — starts Flask + DynamoDB Local + Admin UI
 docker compose -f docker-compose.flask.yml up --build -d
 # Then open http://localhost:4001
 ```
@@ -208,15 +208,15 @@ A persistent scrollable panel at the bottom of the page (same file-browsing capa
 
 ```bash
 git clone https://github.com/dsorrent7yahoo/RESTful-Web-API-Design-with-Node.js-10-Third-Edition.git
-cd RESTful-Web-API-Design-with-Node.js-10-Third-Edition/Chapter04
+cd RESTful-Web-API-Design-with-Node.js-10-Third-Edition
 ```
 
 ### 2 — Start the full local stack (Flask + DynamoDB Local + Admin UI)
 
-The compose file at `../docker-compose.flask.yml` (one level above Chapter04) starts three services:
+The compose file at `../docker-compose.flask.yml` starts three services:
 
 ```bash
-# From the Chapter04 directory
+# From the project root
 docker compose -f docker-compose.flask.yml up --build -d
 ```
 
@@ -229,7 +229,7 @@ docker compose -f docker-compose.flask.yml up --build -d
 ### 3 — Build the Docker image manually
 
 ```bash
-# Build context must be Chapter04/ so the Dockerfile can reach infra/, .github/, etc.
+# Build context must be the project root so the Dockerfile can reach infra/, .github/, etc.
 docker build \
   -f flask-dynamo-db-backend/Dockerfile \
   -t chapter04-flask:latest \
@@ -331,7 +331,7 @@ aws ecr get-login-password --region us-east-1 \
 ```bash
 ECR_URL=$(terraform -chdir=infra/terraform/flask-fargate-ecs output -raw ecr_repository_url)
 
-# Build (run from Chapter04/)
+# Build (run from project root)
 docker build \
   -f flask-dynamo-db-backend/Dockerfile \
   -t ${ECR_URL}:latest \
@@ -636,7 +636,7 @@ The inline policy granted to the running Flask container:
 ## Project Structure
 
 ```
-Chapter04/
+
 ├── flask-dynamo-db-backend/    # Flask REST API (Python 3.12)
 │   ├── app.py                  # Application factory, blueprint registration
 │   ├── Dockerfile              # Multi-stage build; copies source to /source/

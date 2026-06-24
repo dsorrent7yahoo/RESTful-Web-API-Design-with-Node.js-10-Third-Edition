@@ -272,7 +272,7 @@ export default function App() {
   const [srcLoading, setSrcLoading]         = useState(false);
   const [srcError, setSrcError]             = useState('');
   const [srcTreeLoaded, setSrcTreeLoaded]   = useState(false);
-  const [srcQuickFile, setSrcQuickFile]     = useState('README.md');
+  const [srcQuickFile, setSrcQuickFile]     = useState('aws-cli-deploy.md');
   const [srcFullscreen, setSrcFullscreen]   = useState(false);
   const [showApiModal, setShowApiModal]     = useState(false);
   const [showDocsModal, setShowDocsModal]   = useState(false);
@@ -282,7 +282,9 @@ export default function App() {
   const [showAthenaModal, setShowAthenaModal] = useState(false);
   const [quickGenerating, setQuickGenerating] = useState(false);
   const [quickGenToast, setQuickGenToast]     = useState(null);
-  const [docsMode, setDocsMode]             = useState('readme');
+  const [quickCleaning, setQuickCleaning]     = useState(false);
+  const [quickCleanToast, setQuickCleanToast] = useState(null);
+  const [docsMode, setDocsMode]             = useState('deploy');
 
   const selected = useMemo(
     () => API_OPTIONS.find((o) => o.id === selectedId) || API_OPTIONS[0],
@@ -306,10 +308,10 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || res.statusText);
-      const rows = data.rows ?? data.total_rows ?? '?';
-      const file = data.s3_key ? data.s3_key.split('/').pop() : 'claims';
-      const cleanRows = data.clean?.clean_rows ?? '?';
-      setQuickGenToast({ ok: true, msg: `✅ ${file} · ${rows} rows generated, ${cleanRows} clean rows → Glue` });
+      const rows = data.rows_written ?? data.rows ?? '?';
+      const missing = data.rows_missing_date ?? '?';
+      const file = (data.key || data.s3_key || 'claims').split('/').pop();
+      setQuickGenToast({ ok: true, msg: `✅ ${file} · ${rows} rows generated · ${missing} missing service_date` });
     } catch (err) {
       setQuickGenToast({ ok: false, msg: `❌ ${err.message}` });
     } finally {
@@ -317,6 +319,29 @@ export default function App() {
       setTimeout(() => setQuickGenToast(null), 7000);
     }
   }
+
+  async function handleQuickClean() {
+    setQuickCleaning(true);
+    setQuickCleanToast(null);
+    try {
+      const res = await fetch(`${normalizedBaseUrl}/claims/clean`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const qr = data.quality_report || {};
+      const file = (data.parquet_key || data.key || '').split('/').pop() || 'parquet';
+      setQuickCleanToast({ ok: true, msg: `✅ ${file} · ${qr.clean_rows ?? '?'} clean rows → Glue registered` });
+    } catch (err) {
+      setQuickCleanToast({ ok: false, msg: `❌ ${err.message}` });
+    } finally {
+      setQuickCleaning(false);
+      setTimeout(() => setQuickCleanToast(null), 7000);
+    }
+  }
+
   function authHeaders(extra = {}) {
     return authToken ? { Authorization: `Bearer ${authToken}`, ...extra } : { ...extra };
   }
@@ -857,7 +882,8 @@ export default function App() {
   function switchDocsMode(mode) {
     setDocsMode(mode);
     setSrcContent(''); setSrcError(''); setSrcSelectedPath('');
-    if (mode === 'readme')     loadSourceFile('README.md');
+    if (mode === 'deploy')     loadSourceFile('aws-cli-deploy.md');
+    else if (mode === 'readme')     loadSourceFile('README.md');
     else if (mode === 'terraform') loadSourceFile(TERRAFORM_FILES[0].path);
     else if (mode === 'docker')    loadSourceFile(DOCKER_FILES[0].path);
     else if (mode === 'yaml')      loadSourceFile(YAML_FILES[0].path);
@@ -965,29 +991,36 @@ export default function App() {
             </button>
             <SwaggerDocsButton normalizedBaseUrl={normalizedBaseUrl} />
             <button type="button"
-              onClick={() => { setShowDocsModal(true); setDocsMode('readme'); loadSourceFile('README.md'); }}
+              onClick={() => { setShowDocsModal(true); setDocsMode('deploy'); loadSourceFile('aws-cli-deploy.md'); }}
               style={{ background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-              📖 Docs &amp; Source
+              📖 Documentation & Source Files
             </button>
             <button type="button"
               onClick={() => setShowGlueModal(true)}
               style={{ background: 'linear-gradient(135deg,#d97706,#b45309)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-              🗄️ Glue Catalog
+              🗄️ Load Glue Catalog
             </button>
             <button type="button"
               onClick={() => setShowClaimsModal(true)}
               style={{ background: 'linear-gradient(135deg,#0f766e,#0e7490)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-              🏥 New FHIR Claims
+              🏥 synthetic_fhir_claims_lambda
             </button>
             <button type="button"
               onClick={handleQuickGenerate}
               disabled={quickGenerating}
               style={{ background: quickGenerating ? '#374151' : 'linear-gradient(135deg,#065f46,#047857)', color: '#6ee7b7', border: '1px solid #059669',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: quickGenerating ? 'not-allowed' : 'pointer', opacity: quickGenerating ? 0.7 : 1 }}>
-              {quickGenerating ? '⏳ Generating…' : '⚡ Clean & Catalog Claims'}
+              {quickGenerating ? '⏳ Generating…' : '⚡ synthetic_fhir_claims_lambda'}
+            </button>
+            <button type="button"
+              onClick={handleQuickClean}
+              disabled={quickCleaning}
+              style={{ background: quickCleaning ? '#374151' : 'linear-gradient(135deg,#1e3a5f,#1a73e8)', color: '#bfdbfe', border: '1px solid #2563eb',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: quickCleaning ? 'not-allowed' : 'pointer', opacity: quickCleaning ? 0.7 : 1 }}>
+              {quickCleaning ? '⏳ Cleaning…' : '⚡ claims_clean_&_glue_catalog_lambda'}
             </button>
             <button type="button"
               onClick={() => setShowSQSModal(true)}
@@ -1399,6 +1432,17 @@ export default function App() {
           {quickGenToast.msg}
         </div>
       )}
+      {/* Quick-Clean toast */}
+      {quickCleanToast && (
+        <div style={{ position: 'fixed', bottom: 68, right: 24, zIndex: 9999,
+          background: quickCleanToast.ok ? '#0c1a3a' : '#1f0d0d',
+          border: `1px solid ${quickCleanToast.ok ? '#2563eb' : '#dc2626'}`,
+          color: quickCleanToast.ok ? '#bfdbfe' : '#fca5a5',
+          borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 420 }}>
+          {quickCleanToast.msg}
+        </div>
+      )}
 
       {/* FHIR Claims Generator Modal */}
       <ClaimsGenerator
@@ -1432,6 +1476,7 @@ export default function App() {
           <select value={srcQuickFile} onChange={(e) => setSrcQuickFile(e.target.value)}
             style={{ flex: 1, minWidth: '220px', fontSize: '13px', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff' }}>
             <option value="">— select a key file —</option>
+            <option value="aws-cli-deploy.md">🚀 aws-cli-deploy.md  (Docker · Terraform · Fargate deploy guide)</option>
             <option value="README.md">📖 README.md  (project overview, Docker &amp; AWS deploy guide)</option>
             <optgroup label="Flask App">
               <option value="app.py">app.py  (blueprints + CORS + error handlers)</option>

@@ -121,7 +121,7 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken, onG
                 border: 'none', borderRadius: '6px', padding: '8px 20px',
                 fontWeight: 700, fontSize: '14px',
                 cursor: generating ? 'wait' : 'pointer', opacity: generating ? 0.7 : 1 }}>
-              {generating ? 'Running pipeline…' : '⚡ Generate, Clean & Catalog'}
+              {generating ? 'Generating CSV…' : '⚡ synthetic_fhir_claims_lambda'}
             </button>
             <button onClick={fetchFiles} disabled={loadingFiles}
               style={{ background: '#f1f5f9', border: '1px solid #cbd5e1',

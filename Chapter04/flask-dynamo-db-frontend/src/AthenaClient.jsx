@@ -282,7 +282,7 @@ export default function AthenaClient({ show, onClose, baseUrl, authToken }) {
                 color: showAI ? '#7dd3fc' : '#c9d1d9', border: showAI ? '1px solid #2563eb' : '1px solid #30363d' }}
               title="Generate SQL from natural language using Amazon Bedrock"
             >
-              🤖 Amazon Q
+              🤖 Generate SQL
             </button>
           </div>
         </div>
