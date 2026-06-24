@@ -4,7 +4,8 @@ WORKDIR /frontend
 COPY flask-dynamo-db-frontend/package.json flask-dynamo-db-frontend/package-lock.json ./
 RUN npm ci
 COPY flask-dynamo-db-frontend/ ./
-RUN npm run build
+# Disable the Glue Catalog uploader on Fargate (no direct AWS credential access needed there)
+RUN VITE_DISABLE_GLUE=true npm run build
 
 # ── Stage 2: Flask backend ──────────────────────────────────────────
 FROM python:3.12-slim
