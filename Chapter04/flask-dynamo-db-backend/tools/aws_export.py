@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 tools/aws_export.py
 
@@ -160,6 +161,13 @@ class DynamoToS3Exporter:
             },
         )
         print(f'[aws_export] Created S3 bucket "{bucket}".')
+
+    def create_bucket_if_missing(self, bucket):
+        """Create the bucket only when it does not already exist."""
+        if not self.bucket_exists(bucket):
+            self.create_bucket(bucket)
+            return 'created'
+        return 'exists'
 
     def list_buckets(self):
         """Return list of S3 bucket name strings."""

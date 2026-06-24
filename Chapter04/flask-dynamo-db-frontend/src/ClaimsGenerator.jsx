@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
+export default function ClaimsGenerator({ show, onClose, baseUrl, authToken, onGenerateSuccess }) {
   const [generating,   setGenerating]   = useState(false);
   const [lastResult,   setLastResult]   = useState(null);
   const [files,        setFiles]        = useState([]);
@@ -10,6 +10,8 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
   const [viewCols,     setViewCols]     = useState([]);
   const [loadingRows,  setLoadingRows]  = useState(false);
   const [error,        setError]        = useState('');
+  const [cleaningKey,  setCleaningKey]  = useState(null);   // key currently being cleaned
+  const [cleanResults, setCleanResults] = useState({});     // key → clean result
 
   const authHeaders = { Authorization: 'Bearer ' + authToken };
 
@@ -45,11 +47,30 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
       } else {
         setLastResult(data);
         fetchFiles();
+        if (onGenerateSuccess) onGenerateSuccess(data);
       }
     } catch (e) {
       setError(String(e));
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleClean = async (file) => {
+    setCleaningKey(file.key);
+    setError('');
+    try {
+      const resp = await fetch(baseUrl + '/claims/clean', {
+        method: 'POST',
+        headers: { ...authHeaders, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: file.key }),
+      });
+      const data = await resp.json();
+      setCleanResults(prev => ({ ...prev, [file.key]: data }));
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setCleaningKey(null);
     }
   };
 
@@ -100,23 +121,34 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
                 border: 'none', borderRadius: '6px', padding: '8px 20px',
                 fontWeight: 700, fontSize: '14px',
                 cursor: generating ? 'wait' : 'pointer', opacity: generating ? 0.7 : 1 }}>
-              {generating ? 'Generating…' : '⚡ Generate 100 Claims'}
+              {generating ? 'Running pipeline…' : '⚡ Generate, Clean & Catalog'}
             </button>
             <button onClick={fetchFiles} disabled={loadingFiles}
               style={{ background: '#f1f5f9', border: '1px solid #cbd5e1',
                 borderRadius: '6px', padding: '8px 14px',
                 fontWeight: 600, fontSize: '13px', cursor: 'pointer' }}>
-              {loadingFiles ? 'Loading…' : '↻ Refresh Files'}
+              {loadingFiles ? 'Loading...' : 'Refresh Files'}
             </button>
           </div>
 
           {/* last result */}
           {lastResult && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac',
-              borderRadius: '8px', padding: '10px 16px', fontSize: '13px' }}>
-              <strong>Written:</strong> {lastResult.key}&ensp;·&ensp;
-              <strong>{lastResult.rows_written}</strong> rows&ensp;·&ensp;
-              <strong style={{ color: '#b91c1c' }}>{lastResult.rows_missing_date}</strong> missing service_date
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac',
+                borderRadius: '8px', padding: '10px 16px', fontSize: '13px' }}>
+                <strong>CSV:</strong> {lastResult.key}&ensp;·&ensp;
+                <strong>{lastResult.rows_written}</strong> rows&ensp;·&ensp;
+                <strong style={{ color: '#b91c1c' }}>{lastResult.rows_missing_date}</strong> missing service_date
+              </div>
+              {lastResult.clean && lastResult.clean.statusCode === 200 && (
+                <CleanResult result={lastResult.clean} />
+              )}
+              {lastResult.clean && lastResult.clean.statusCode !== 200 && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5',
+                  borderRadius: '6px', padding: '10px 14px', fontSize: '13px', color: '#991b1b' }}>
+                  ⚠ Glue registration failed: {lastResult.clean.error || 'unknown error'}
+                </div>
+              )}
             </div>
           )}
 
@@ -155,8 +187,29 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
                       fontSize: '12px', cursor: 'pointer' }}>
                     {viewKey === f.key ? 'Hide' : 'View'}
                   </button>
+                  <button onClick={() => handleClean(f)}
+                    disabled={cleaningKey === f.key}
+                    style={{ background: cleaningKey === f.key ? '#d1fae5' : 'linear-gradient(135deg,#065f46,#0e7490)',
+                      color: cleaningKey === f.key ? '#065f46' : '#fff',
+                      border: 'none', borderRadius: '5px',
+                      padding: '4px 12px', fontWeight: 600,
+                      fontSize: '12px', cursor: cleaningKey === f.key ? 'wait' : 'pointer',
+                      whiteSpace: 'nowrap' }}>
+                    {cleaningKey === f.key ? '⏳ Cleaning…' : '🧹 Clean & Catalog'}
+                  </button>
                 </div>
 
+                {cleanResults[f.key] && (
+                  <div style={{ margin: '0 0 6px', padding: '2px 0' }}>
+                    {cleanResults[f.key].statusCode === 200
+                      ? <CleanResult result={cleanResults[f.key]} />
+                      : <div style={{ background: '#fef2f2', border: '1px solid #fca5a5',
+                          borderRadius: '6px', padding: '10px 14px', fontSize: '13px', color: '#991b1b' }}>
+                          ⚠ Clean failed: {cleanResults[f.key].error || JSON.stringify(cleanResults[f.key])}
+                        </div>
+                    }
+                  </div>
+                )}
                 {viewKey === f.key && (
                   <div style={{ marginBottom: '8px', border: '1px solid #bae6fd',
                     borderRadius: '6px', overflow: 'hidden' }}>
@@ -164,14 +217,18 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
                       <p style={{ padding: '16px', fontSize: '13px', color: '#64748b' }}>Loading…</p>
                     )}
                     {viewRows && viewCols.length > 0 && (
-                      <div style={{ overflowX: 'auto', maxHeight: '380px', overflowY: 'auto' }}>
-                        <table style={{ borderCollapse: 'collapse', fontSize: '12px', width: '100%' }}>
-                          <thead style={{ position: 'sticky', top: 0, zIndex: 1,
-                            background: '#0ea5e9', color: '#fff' }}>
+                      <div style={{ overflow: 'auto', maxHeight: '400px' }}>
+                        <table style={{ borderCollapse: 'collapse', fontSize: '12px',
+                          width: 'max-content', minWidth: '100%' }}>
+                          <thead>
                             <tr>
                               {viewCols.map(c => (
-                                <th key={c} style={{ padding: '6px 10px',
-                                  textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 600 }}>
+                                <th key={c} style={{
+                                  position: 'sticky', top: 0, zIndex: 2,
+                                  background: '#0ea5e9', color: '#fff',
+                                  padding: '7px 10px', textAlign: 'left',
+                                  whiteSpace: 'nowrap', fontWeight: 600,
+                                  borderRight: '1px solid #38bdf8' }}>
                                   {c}
                                 </th>
                               ))}
@@ -184,7 +241,9 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
                                   const missing = c === 'service_date' && !row[c];
                                   return (
                                     <td key={c} style={{ padding: '5px 10px',
-                                      borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap',
+                                      borderBottom: '1px solid #e2e8f0',
+                                      borderRight: '1px solid #f1f5f9',
+                                      whiteSpace: 'nowrap',
                                       color: missing ? '#dc2626' : 'inherit',
                                       fontWeight: missing ? 700 : 'normal' }}>
                                       {missing ? '⚠ missing' : row[c]}
@@ -213,6 +272,79 @@ export default function ClaimsGenerator({ show, onClose, baseUrl, authToken }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CleanResult({ result }) {
+  const qr = result.quality_report || {};
+  const dropped = (qr.dropped_missing_date || 0)
+    + (qr.dropped_invalid_numerics || 0)
+    + (qr.dropped_non_positive_qty || 0)
+    + (qr.dropped_duplicate_claims || 0)
+    + (qr.dropped_missing_codes || 0)
+    + (qr.dropped_invalid_dates || 0);
+  const warnings = [];
+  if (qr.dropped_duplicate_claims > 0) warnings.push(`${qr.dropped_duplicate_claims} duplicate claim_ids`);
+  if (qr.corrected_currency > 0)       warnings.push(`${qr.corrected_currency} currency codes corrected`);
+  if (qr.rows_amount_mismatch > 0)     warnings.push(`${qr.rows_amount_mismatch} net_amount mismatches`);
+
+  return (
+    <div style={{
+      margin: '4px 0 8px', borderRadius: 8,
+      border: '1px solid #a7f3d0', overflow: 'hidden', fontSize: 13,
+    }}>
+      {/* Glue registration banner */}
+      <div style={{
+        background: 'linear-gradient(135deg,#059669,#047857)',
+        color: '#fff', padding: '9px 16px',
+        display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+      }}>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>✅ Registered in Glue Catalog</span>
+        <code style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 4, padding: '1px 7px', fontSize: 13 }}>
+          {result.glue_database}.{result.glue_table}
+        </code>
+        <span style={{ marginLeft: 'auto', opacity: 0.9, fontSize: 12 }}>
+          📦 {result.filename}&nbsp;·&nbsp;
+          {result.size_bytes ? (result.size_bytes / 1024).toFixed(1) + ' KB' : '-'}&nbsp;·&nbsp;
+          Snappy Parquet
+        </span>
+      </div>
+
+      {/* quality report grid */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(155px, 1fr))',
+        gap: 1, background: '#d1fae5',
+      }}>
+        {[
+          ['Original rows',   qr.original_rows,            '#f0fdf4', '#064e3b'],
+          ['✅ Clean rows',   qr.clean_rows,               '#f0fdf4', '#065f46'],
+          ['⬇ Dropped total', dropped,                     dropped > 0 ? '#fff7ed' : '#f0fdf4', dropped > 0 ? '#92400e' : '#064e3b'],
+          ['Missing date',    qr.dropped_missing_date,     qr.dropped_missing_date > 0 ? '#fff7ed' : '#f0fdf4', '#78350f'],
+          ['Bad numerics',    qr.dropped_invalid_numerics, '#f0fdf4', '#064e3b'],
+          ['Duplicates',      qr.dropped_duplicate_claims, qr.dropped_duplicate_claims > 0 ? '#fef9c3' : '#f0fdf4', '#713f12'],
+          ['Missing codes',   qr.dropped_missing_codes,    '#f0fdf4', '#064e3b'],
+          ['Amt mismatch',    qr.rows_amount_mismatch,     qr.rows_amount_mismatch > 0 ? '#fef9c3' : '#f0fdf4', '#713f12'],
+        ].map(([label, val, bg, col]) => (
+          <div key={label} style={{ background: bg, padding: '8px 14px' }}>
+            <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: col }}>{val ?? '-'}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* S3 location */}
+      <div style={{ padding: '7px 14px', background: '#ecfdf5', fontSize: 12, color: '#065f46' }}>
+        📂 s3://{result.bucket}/{result.key}
+      </div>
+
+      {/* warnings */}
+      {warnings.length > 0 && (
+        <div style={{ padding: '7px 14px', background: '#fffbeb',
+          borderTop: '1px solid #fde68a', fontSize: 12, color: '#92400e' }}>
+          ⚠&nbsp;{warnings.join('  ·  ')}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,6 +5,8 @@ import DocsSourceModal from './DocsSourceModal';
 import FileContentViewer from './FileContentViewer';
 import GlueCatalogUploader from './GlueCatalogUploader';
 import ClaimsGenerator from './ClaimsGenerator';
+import SQSMonitor from './SQSMonitor';
+import AthenaClient from './AthenaClient';
 
 // ---------------------------------------------------------------------------
 // API options — medications (same routes as Node backend) + Flask-specific
@@ -274,8 +276,12 @@ export default function App() {
   const [srcFullscreen, setSrcFullscreen]   = useState(false);
   const [showApiModal, setShowApiModal]     = useState(false);
   const [showDocsModal, setShowDocsModal]   = useState(false);
-  const [showGlueModal, setShowGlueModal]   = useState(false);
+  const [showGlueModal, setShowGlueModal]     = useState(false);
   const [showClaimsModal, setShowClaimsModal] = useState(false);
+  const [showSQSModal, setShowSQSModal]       = useState(false);
+  const [showAthenaModal, setShowAthenaModal] = useState(false);
+  const [quickGenerating, setQuickGenerating] = useState(false);
+  const [quickGenToast, setQuickGenToast]     = useState(null);
   const [docsMode, setDocsMode]             = useState('readme');
 
   const selected = useMemo(
@@ -289,6 +295,28 @@ export default function App() {
 
   // Auth helpers (Flask uses JWT in localStorage)
   function getAuthToken() { return authToken; }
+
+  async function handleQuickGenerate() {
+    setQuickGenerating(true);
+    setQuickGenToast(null);
+    try {
+      const res = await fetch(`${normalizedBaseUrl}/claims/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || res.statusText);
+      const rows = data.rows ?? data.total_rows ?? '?';
+      const file = data.s3_key ? data.s3_key.split('/').pop() : 'claims';
+      const cleanRows = data.clean?.clean_rows ?? '?';
+      setQuickGenToast({ ok: true, msg: `✅ ${file} · ${rows} rows generated, ${cleanRows} clean rows → Glue` });
+    } catch (err) {
+      setQuickGenToast({ ok: false, msg: `❌ ${err.message}` });
+    } finally {
+      setQuickGenerating(false);
+      setTimeout(() => setQuickGenToast(null), 7000);
+    }
+  }
   function authHeaders(extra = {}) {
     return authToken ? { Authorization: `Bearer ${authToken}`, ...extra } : { ...extra };
   }
@@ -952,7 +980,26 @@ export default function App() {
               onClick={() => setShowClaimsModal(true)}
               style={{ background: 'linear-gradient(135deg,#0f766e,#0e7490)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
-              🏥 FHIR Claims
+              🏥 New FHIR Claims
+            </button>
+            <button type="button"
+              onClick={handleQuickGenerate}
+              disabled={quickGenerating}
+              style={{ background: quickGenerating ? '#374151' : 'linear-gradient(135deg,#065f46,#047857)', color: '#6ee7b7', border: '1px solid #059669',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: quickGenerating ? 'not-allowed' : 'pointer', opacity: quickGenerating ? 0.7 : 1 }}>
+              {quickGenerating ? '⏳ Generating…' : '⚡ Clean & Catalog Claims'}
+            </button>
+            <button type="button"
+              onClick={() => setShowSQSModal(true)}
+              style={{ background: 'linear-gradient(135deg,#0f4c81,#1a73e8)', color: '#fff', border: 'none',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              📬 SQS Monitor
+            </button>
+            <button type="button"
+              onClick={() => setShowAthenaModal(true)}
+              style={{ background: 'linear-gradient(135deg,#1a1a2e,#16213e)', color: '#7dd3fc', border: '1px solid #2563eb',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              🗄 Athena Client
             </button>
           </div>
         </div>
@@ -1341,9 +1388,34 @@ export default function App() {
         buckets={bucketList}
       />
 
+      {/* Quick-Generate toast */}
+      {quickGenToast && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
+          background: quickGenToast.ok ? '#052e16' : '#1f0d0d',
+          border: `1px solid ${quickGenToast.ok ? '#16a34a' : '#dc2626'}`,
+          color: quickGenToast.ok ? '#86efac' : '#fca5a5',
+          borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.5)', maxWidth: 420 }}>
+          {quickGenToast.msg}
+        </div>
+      )}
+
       {/* FHIR Claims Generator Modal */}
       <ClaimsGenerator
         show={showClaimsModal} onClose={() => setShowClaimsModal(false)}
+        baseUrl={baseUrl} authToken={authToken}
+        onGenerateSuccess={() => { setShowClaimsModal(false); setShowSQSModal(true); }}
+      />
+
+      {/* SQS Lambda Monitor Modal */}
+      <SQSMonitor
+        show={showSQSModal} onClose={() => setShowSQSModal(false)}
+        baseUrl={baseUrl} authToken={authToken}
+      />
+
+      {/* Athena SQL Client */}
+      <AthenaClient
+        show={showAthenaModal} onClose={() => setShowAthenaModal(false)}
         baseUrl={baseUrl} authToken={authToken}
       />
 

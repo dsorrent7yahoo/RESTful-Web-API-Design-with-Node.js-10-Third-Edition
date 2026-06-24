@@ -18,8 +18,10 @@ from routes.auth import auth_bp
 from routes.upload import upload_bp
 from routes.export import export_bp
 from routes.claims import claims_bp
+from routes.sqs_results import sqs_bp
 from routes.glue_upload import glue_upload_bp
 from routes.source import source_bp
+from routes.athena import athena_bp
 from utils.startup import apply_startup_overrides_from_args, ensure_default_csv_tables_exist
 
 
@@ -56,7 +58,12 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(export_bp)
 app.register_blueprint(glue_upload_bp)
 app.register_blueprint(claims_bp)
+app.register_blueprint(sqs_bp)
 app.register_blueprint(source_bp)
+app.register_blueprint(athena_bp)
+
+from routes.sqs_results import start_poller
+start_poller()
 
 
 
