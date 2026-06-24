@@ -3,6 +3,7 @@ import ApiExplorerModal from './ApiExplorerModal';
 import SwaggerDocsButton from './SwaggerDocsButton';
 import DocsSourceModal from './DocsSourceModal';
 import FileContentViewer from './FileContentViewer';
+import GlueCatalogUploader from './GlueCatalogUploader';
 
 // ---------------------------------------------------------------------------
 // API options — medications (same routes as Node backend) + Flask-specific
@@ -272,6 +273,7 @@ export default function App() {
   const [srcFullscreen, setSrcFullscreen]   = useState(false);
   const [showApiModal, setShowApiModal]     = useState(false);
   const [showDocsModal, setShowDocsModal]   = useState(false);
+  const [showGlueModal, setShowGlueModal]   = useState(false);
   const [docsMode, setDocsMode]             = useState('readme');
 
   const selected = useMemo(
@@ -938,6 +940,12 @@ export default function App() {
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
               📖 Docs &amp; Source
             </button>
+            <button type="button"
+              onClick={() => setShowGlueModal(true)}
+              style={{ background: 'linear-gradient(135deg,#d97706,#b45309)', color: '#fff', border: 'none',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              🗄️ Glue Catalog
+            </button>
           </div>
         </div>
         <div className="hero-badge">
@@ -1316,6 +1324,13 @@ export default function App() {
         renderSrcTree={renderSrcTree} setSrcFullscreen={setSrcFullscreen}
         loadSourceFile={loadSourceFile}
         TERRAFORM_FILES={TERRAFORM_FILES} DOCKER_FILES={DOCKER_FILES} YAML_FILES={YAML_FILES}
+      />
+
+      {/* Glue Catalog Uploader Modal */}
+      <GlueCatalogUploader
+        show={showGlueModal} onClose={() => setShowGlueModal(false)}
+        baseUrl={baseUrl} authToken={authToken}
+        buckets={bucketList}
       />
 
       {/* Source Browser */}
