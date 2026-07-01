@@ -41,10 +41,12 @@ def generate_claims():
 @jwt_required
 def clean_claims():
     """Run claims_cleaner lambda — cleans CSV + registers in Glue catalog.
-    If no key provided, automatically uses the most recent CSV in S3."""
-    data   = request.get_json(force=True) or {}
-    key    = data.get("key") or request.args.get("key", "").strip()
-    bucket = data.get("bucket", BUCKET)
+    If no key provided, automatically uses the most recent CSV in S3.
+    Pass delete_after=true to delete the source CSV after successful cataloging."""
+    data         = request.get_json(force=True) or {}
+    key          = data.get("key") or request.args.get("key", "").strip()
+    bucket       = data.get("bucket", BUCKET)
+    delete_after = data.get("delete_after", False)
     if not key:
         s3   = boto3.client("s3", region_name=REGION)
         resp = s3.list_objects_v2(Bucket=bucket, Prefix=CLAIMS_PREFIX)
@@ -56,7 +58,51 @@ def clean_claims():
     import claims_cleaner as _mod
     importlib.reload(_mod)
     result = _mod.lambda_handler({"bucket": bucket, "key": key}, None)
+    if delete_after and result.get("statusCode") == 200:
+        try:
+            boto3.client("s3", region_name=REGION).delete_object(Bucket=bucket, Key=key)
+            result["source_deleted"] = True
+        except Exception as exc:
+            result["source_deleted"] = False
+            result["delete_error"] = str(exc)
     return jsonify(result)
+
+
+@claims_bp.post("/claims/process-all")
+@jwt_required
+def process_all_claims():
+    """Clean + catalog + delete every CSV in the staging bucket claims/ prefix."""
+    s3   = boto3.client("s3", region_name=REGION)
+    resp = s3.list_objects_v2(Bucket=BUCKET, Prefix=CLAIMS_PREFIX)
+    csvs = [o for o in resp.get("Contents", []) if o["Key"].endswith(".csv")]
+    if not csvs:
+        return jsonify({"processed": 0, "results": [], "message": "no CSV files found"})
+    _lambda_dir()
+    import claims_cleaner as _mod
+    importlib.reload(_mod)
+    results = []
+    for obj in csvs:
+        key    = obj["Key"]
+        result = _mod.lambda_handler({"bucket": BUCKET, "key": key}, None)
+        deleted = False
+        delete_error = None
+        if result.get("statusCode") == 200:
+            try:
+                s3.delete_object(Bucket=BUCKET, Key=key)
+                deleted = True
+            except Exception as exc:
+                delete_error = str(exc)
+        results.append({
+            "key":          key,
+            "name":         key.split("/")[-1],
+            "status":       "ok" if result.get("statusCode") == 200 else "error",
+            "source_deleted": deleted,
+            "delete_error": delete_error,
+            "clean_result": result,
+        })
+    ok  = sum(1 for r in results if r["status"] == "ok")
+    err = len(results) - ok
+    return jsonify({"processed": len(results), "succeeded": ok, "failed": err, "results": results})
 
 
 @claims_bp.get("/claims/files")

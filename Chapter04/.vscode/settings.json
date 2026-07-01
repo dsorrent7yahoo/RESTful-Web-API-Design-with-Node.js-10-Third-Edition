@@ -1,3 +1,19 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:system"
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+
+    // ── Disable isort (ms-python.isort, mikoz.isort-formatter, freakypie.code-python-isort) ──
+    "isort.serverEnabled": false,
+    "isort.check": false,
+    "isort.args": [],
+
+    // Prevent any extension from auto-organizing imports on save
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": "never"
+    },
+
+    // Ensure isort is never selected as the Python formatter
+    "[python]": {
+        "editor.defaultFormatter": "ms-python.python",
+        "editor.formatOnSave": false
+    }
 }

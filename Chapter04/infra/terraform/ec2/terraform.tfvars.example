@@ -1,0 +1,18 @@
+# Copy to terraform.tfvars and fill in your values.
+# terraform.tfvars is .gitignored — never commit it.
+
+aws_region    = "us-east-1"
+name_prefix   = "chapter04-ec2"
+instance_type = "t3.medium"   # or t3.large (8 GB) for comfortable headroom
+
+# Name of an existing EC2 key pair in your AWS account.
+# Create one: AWS Console → EC2 → Key Pairs → Create
+key_pair_name = "my-key-pair"
+
+# Restrict SSH to your IP: "203.0.113.10/32"
+# Leave as "0.0.0.0/0" only for quick demos.
+allowed_ssh_cidr = "0.0.0.0/0"
+
+dynamodb_table_name = "medications"
+github_branch       = "django"
+jwt_secret          = "change-me-to-a-strong-secret"

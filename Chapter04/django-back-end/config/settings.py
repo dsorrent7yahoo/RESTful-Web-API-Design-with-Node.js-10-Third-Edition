@@ -1,3 +1,4 @@
+# Databricks notebook source
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -17,6 +18,12 @@ INSTALLED_APPS = [
     "core",
     "medications",
     "auth_app",
+    "claims_app",
+    "athena_app",
+    "export_app",
+    "upload_app",
+    "sqs_app",
+    "source_app",
 ]
 
 MIDDLEWARE = [
@@ -41,6 +48,16 @@ CORS_ALLOW_CREDENTIALS = True
 REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "core.exception_handler.custom_exception_handler",
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "20/hour",
+        "user": "200/hour",
+        "login": "5/minute",
+        "register": "10/hour",
+    },
 }
 
 # App-specific settings

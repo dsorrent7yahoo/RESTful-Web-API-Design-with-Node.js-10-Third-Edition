@@ -1,0 +1,29 @@
+aws_region  = "us-east-1"
+name_prefix = "healthcare-fhir"
+aws_account_id = "005905648819"
+
+# ── AWS CLI profiles ──────────────────────────────────────────────────────────
+# aws_profile     — used for EKS, ECR, VPC reads (your normal dev credentials)
+# iam_admin_profile — used ONLY for IAM policy create/attach (needs admin or root)
+#
+# Set up profiles in ~/.aws/credentials or ~/.aws/config:
+#   [default]          ← regular dev user
+#   [admin]            ← IAM admin or root (for policy management only)
+#
+# If your default credentials already have IAM admin rights, set both to "default".
+aws_profile       = "default"
+iam_admin_profile = "admin"
+
+# ── Networking — fill in your VPC/subnet IDs ──────────────────────────────────
+vpc_id             = "vpc-XXXXXXXXXXXXXXXXX"
+private_subnet_ids = ["subnet-XXXXXXXXXXXXXXXXX", "subnet-XXXXXXXXXXXXXXXXX"]
+public_subnet_ids  = ["subnet-XXXXXXXXXXXXXXXXX", "subnet-XXXXXXXXXXXXXXXXX"]
+
+# ── Nodes ─────────────────────────────────────────────────────────────────────
+node_instance_types = ["t3.medium"]
+node_desired_size   = 2
+node_min_size       = 2
+node_max_size       = 4
+
+# ── Secrets (use -var or SSM/Vault in CI; don't commit real values) ───────────
+jwt_secret = "health-care-dev-secret"

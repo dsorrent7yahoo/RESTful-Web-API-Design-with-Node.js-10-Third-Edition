@@ -1,0 +1,4 @@
+# Remove nodePort from all Service ports.
+# NodePort values are invalid for ClusterIP services and will cause apply errors.
+- op: remove
+  path: /spec/ports/0/nodePort

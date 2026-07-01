@@ -1,0 +1,36 @@
+# Per-Dockerfile .dockerignore for dynamo-db-backend/Dockerfile
+# Used by the node-backend service in docker-compose.ec2.yml.
+# Overrides the root .dockerignore so dynamo-db-backend/ is included in
+# the build context (the root .dockerignore excludes it for Flask builds).
+
+**/node_modules
+**/dist
+**/.vite
+**/.DS_Store
+**/npm-debug.log
+**/.env
+.git
+.gitignore
+.vscode
+coherent-11-07-2022/dicom
+
+# Exclude everything else that the Dockerfile doesn't need
+fhirstarters/
+spring-boot-react-frontend/
+django-front-end/
+django-back-end/
+dynamo-db-frontend/
+flask-dynamo-db-backend/
+flask-dynamo-db-frontend/
+landing-page/
+backend/
+test/
+model/
+modules/
+routes/
+infra/
+.github/
+microservices/
+k8s/
+scripts/
+infra/

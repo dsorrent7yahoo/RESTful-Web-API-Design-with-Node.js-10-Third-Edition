@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glue-catalog
+  namespace: healthcare
+  labels:
+    app: glue-catalog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glue-catalog
+  template:
+    metadata:
+      labels:
+        app: glue-catalog
+    spec:
+      containers:
+        - name: glue-catalog
+          image: localhost:5000/glue-catalog:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4010
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4010
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4010
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glue-catalog
+  namespace: healthcare
+spec:
+  selector:
+    app: glue-catalog
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4010
+      targetPort: 4010
+      nodePort: 30000

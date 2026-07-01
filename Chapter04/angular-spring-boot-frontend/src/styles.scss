@@ -1,0 +1,77 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+html {
+  @include mat.theme((
+    color: (
+      primary: mat.$blue-palette,
+      tertiary: mat.$cyan-palette,
+      theme-type: dark,
+    ),
+    typography: (
+      brand-family: 'Roboto',
+    ),
+    density: (
+      scale: 0,
+    ),
+  ));
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: Roboto, 'Helvetica Neue', sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #161b22; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.card {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.badge-ok     { background: #1a4731; color: #3fb950; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+.badge-err    { background: #4b1113; color: #f85149; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+.badge-warn   { background: #3d2b1f; color: #e3b341; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+.badge-info   { background: #1c3550; color: #58a6ff; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+
+.mat-mdc-table { background: #161b22 !important; }
+.mat-mdc-row:hover { background: #1f2937 !important; }
+
+pre, code {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.response-box {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 400px;
+  overflow-y: auto;
+  color: #79c0ff;
+  font-size: 12px;
+}
+
+.status-200  { color: #3fb950; }
+.status-4xx  { color: #f85149; }
+.status-5xx  { color: #e3b341; }

@@ -1,0 +1,126 @@
+<div class="dashboard">
+  <!-- Toolbar -->
+  <mat-toolbar color="primary" class="toolbar">
+    <span class="logo">🏥 Healthcare API</span>
+    <span class="subtitle">Spring Boot + Angular</span>
+    <span class="spacer"></span>
+
+    <!-- Backend selector -->
+    <mat-form-field appearance="outline" class="backend-select">
+      <mat-label>Backend</mat-label>
+      <mat-select [(ngModel)]="selectedBackend" (ngModelChange)="onBackendChange($event)">
+        @for (k of presetKeys; track k) {
+          <mat-option [value]="k">{{ k }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <!-- Health pill -->
+    <span class="health-pill" [class]="'health-' + healthStatus()">
+      {{ healthStatus() === 'ok' ? '● Online' : healthStatus() === 'error' ? '● Offline' : '○ Checking' }}
+    </span>
+
+    <!-- Microservices toggle -->
+    <button mat-stroked-button (click)="toggleMicroservices()" class="ms-btn"
+            [class.active]="microservicesOn()">
+      ⚡ Microservices {{ microservicesOn() ? 'ON' : 'OFF' }}
+    </button>
+
+    <button mat-icon-button (click)="logout()" title="Log out">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <div class="content page-container">
+
+    <!-- Microservices health row -->
+    @if (microservicesOn()) {
+      <div class="ms-health-row card">
+        @for (entry of microUrls | keyvalue; track entry.key) {
+          <div class="ms-chip" [class]="'ms-' + (serviceHealth[entry.key] ?? 'loading')">
+            {{ entry.key }}
+            <span class="ms-port">{{ entry.value.split(':')[2] }}</span>
+          </div>
+        }
+        <button mat-icon-button (click)="checkMicroservices()" title="Refresh">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    }
+
+    <!-- Microservice action buttons -->
+    @if (microservicesOn()) {
+      <div class="ms-actions">
+        <button mat-stroked-button (click)="showClaims.set(true)">🏥 Claims Generator &amp; Cleaner</button>
+        <button mat-stroked-button (click)="showSqsMonitor.set(true)">📬 SQS Monitor</button>
+        <button mat-stroked-button (click)="showAthena.set(true)">🗄 Athena Client</button>
+        <button mat-stroked-button (click)="showGlue.set(true)">☁️ S3 / Glue Uploader</button>
+      </div>
+    }
+
+    <!-- Main tabs -->
+    <mat-tab-group animationDuration="200ms" class="main-tabs">
+
+      <!-- Tables tab -->
+      <mat-tab label="📋 DynamoDB Tables">
+        <div class="tab-content card">
+          <div class="section-header">
+            <span>DynamoDB Tables ({{ tables().length }})</span>
+            <button mat-icon-button (click)="loadTables()"><mat-icon>refresh</mat-icon></button>
+          </div>
+          @if (tablesLoading()) {
+            <p class="muted">Loading tables…</p>
+          } @else {
+            <div class="table-chips">
+              @for (t of tables(); track t) {
+                <span class="badge-info table-chip">{{ t }}</span>
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+      <!-- Medications tab -->
+      <mat-tab label="💊 Medications">
+        <div class="tab-content">
+          <app-medications [baseUrl]="currentUrl" />
+        </div>
+      </mat-tab>
+
+      <!-- API Explorer tab -->
+      <mat-tab label="🔬 API Explorer">
+        <div class="tab-content">
+          <app-api-explorer [baseUrl]="currentUrl" [microservicesOn]="microservicesOn()" />
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+
+    <!-- Modals -->
+    @if (showSqsMonitor()) {
+      <app-sqs-monitor
+        [baseUrl]="microservicesOn() ? microUrls['sqsMonitor'] : currentUrl"
+        (closed)="showSqsMonitor.set(false)" />
+    }
+
+    @if (showClaims()) {
+      <app-claims
+        [generatorUrl]="microservicesOn() ? microUrls['claimsGenerator'] : currentUrl"
+        [cleanerUrl]="microservicesOn() ? microUrls['claimsCleaner'] : currentUrl"
+        (closed)="showClaims.set(false)" />
+    }
+
+    @if (showAthena()) {
+      <app-athena
+        [baseUrl]="microservicesOn() ? microUrls['athenaClient'] : currentUrl"
+        (closed)="showAthena.set(false)" />
+    }
+
+    @if (showGlue()) {
+      <app-glue-uploader
+        [baseUrl]="currentUrl"
+        (closed)="showGlue.set(false)" />
+    }
+
+  </div>
+</div>

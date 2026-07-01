@@ -1,14 +1,25 @@
+# Databricks notebook source
 """
 auth_app/views.py
 Django REST Framework views for all /auth/* endpoints.
 """
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 
 from utils.jwt_utils import jwt_required
 
 
+class LoginRateThrottle(AnonRateThrottle):
+    scope = "login"
+
+
+class RegisterRateThrottle(AnonRateThrottle):
+    scope = "register"
+
+
 @api_view(["POST"])
+@throttle_classes([RegisterRateThrottle])
 def register_user(request):
     from modules import auth
     body = request.data or {}
@@ -20,6 +31,7 @@ def register_user(request):
 
 
 @api_view(["POST"])
+@throttle_classes([LoginRateThrottle])
 def login_user(request):
     from modules import auth
     body = request.data or {}

@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqs-monitor
+  namespace: healthcare
+  labels:
+    app: sqs-monitor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqs-monitor
+  template:
+    metadata:
+      labels:
+        app: sqs-monitor
+    spec:
+      containers:
+        - name: sqs-monitor
+          image: sqs-monitor:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4013
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4013
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4013
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqs-monitor
+  namespace: healthcare
+spec:
+  selector:
+    app: sqs-monitor
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4013
+      targetPort: 4013
+      nodePort: 30003

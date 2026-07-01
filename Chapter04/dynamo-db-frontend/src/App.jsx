@@ -165,11 +165,20 @@ function chunkTableNames(tableNames, chunkSize) {
   return rows;
 }
 
+// True when the page is served from a remote host (EC2, Fargate, any non-localhost)
+const IS_FARGATE = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+// Single gateway entry point — auto-derives the host so no hardcoded IP is needed
+const GATEWAY_ORIGIN = `${window.location.protocol}//${window.location.hostname}:8080`;
+
 const BACKEND_PRESETS = {
-  aws: 'http://100.24.24.190:4001',
-  docker: 'http://localhost:4001',
-  standalone: 'http://localhost:4002'
+  cmdline: 'http://localhost:4001',  // node app.js (default port)
+  docker:  'http://localhost:4003',  // docker-compose maps 4003→4001
+  aws:     `${GATEWAY_ORIGIN}/proxy/node`,
 };
+// Landing page: port 5180 locally, root domain on EC2 / production
+const LANDING_URL = window.location.hostname === 'localhost'
+  ? `${window.location.protocol}//localhost:5180`
+  : `${window.location.protocol}//${window.location.hostname}`;
 
 function normalizeBaseUrl(value) {
   return String(value || '').trim().replace(/\/$/, '');
@@ -184,13 +193,32 @@ function resolveBackendMode(baseUrl) {
 function getBackendModeLabel(mode) {
   if (mode === 'aws') return 'AWS';
   if (mode === 'docker') return 'Docker';
-  if (mode === 'standalone') return 'Standalone';
+  if (mode === 'cmdline') return 'Command Line';
   return 'Custom';
 }
 
 export default function App() {
-  const [baseUrl, setBaseUrl] = useState(BACKEND_PRESETS.docker);
-  const [backendMode, setBackendMode] = useState('docker');
+  const [baseUrl, setBaseUrl] = useState(() => {
+    const saved = localStorage.getItem('nodeHealthCareBackendUrl');
+    if (saved) return saved;
+    return IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline;
+  });
+  const [backendMode, setBackendMode] = useState(() => {
+    const saved = localStorage.getItem('nodeHealthCareBackendUrl');
+    if (saved) return resolveBackendMode(saved);
+    return IS_FARGATE ? 'aws' : 'cmdline';
+  });
+  const [loginMode, setLoginMode] = useState(() => {
+    // Restore locked mode on page reload if token is still present
+    if (!localStorage.getItem('nodeHealthCareToken')) return null;
+    const savedUrl = localStorage.getItem('nodeHealthCareBackendUrl');
+    return savedUrl ? resolveBackendMode(savedUrl) : null;
+  });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('nodeHealthCareToken') || '');
+  const [loginEmail, setLoginEmail] = useState('react-dgs@yahoo.com');
+  const [loginPassword, setLoginPassword] = useState('python');
+  const [loginStatus, setLoginStatus] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
   const [selectedId, setSelectedId] = useState('getAll');
   const [medicationId, setMedicationId] = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -232,17 +260,21 @@ export default function App() {
     () => getBackendModeLabel(backendMode),
     [backendMode]
   );
+  // After login: lock buttons to the mode used at login; cmdline unlocks all
+  const modeLocked = loginMode !== null && loginMode !== 'cmdline';
 
   function setBackendTarget(mode) {
     const nextUrl = BACKEND_PRESETS[mode] || baseUrl;
     setBackendMode(mode);
     setBaseUrl(nextUrl);
+    localStorage.setItem('nodeHealthCareBackendUrl', nextUrl);
   }
 
   function handleBaseUrlChange(event) {
     const nextUrl = event.target.value;
     setBaseUrl(nextUrl);
     setBackendMode(resolveBackendMode(nextUrl));
+    localStorage.setItem('nodeHealthCareBackendUrl', nextUrl);
   }
 
   async function loadDynamoTables(currentBaseUrl) {
@@ -260,7 +292,8 @@ export default function App() {
   async function loadOptions(currentBaseUrl) {
     try {
       const normalizedBase = normalizeBaseUrl(currentBaseUrl);
-      const response = await fetch(`${normalizedBase}/medications/?limit=250`);
+      const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+      const response = await fetch(`${normalizedBase}/medications/?limit=250`, { headers: authHeader });
 
       if (!response.ok) {
         return;
@@ -322,12 +355,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    loadOptions(baseUrl);
+    if (authToken) loadOptions(baseUrl);
     loadDynamoTables(baseUrl);
-  }, [baseUrl]);
+  }, [baseUrl, authToken]);
 
   function restartExplorer() {
-    setBackendTarget('docker');
+    setBackendTarget('cmdline');
     setSelectedId('getAll');
     setMedicationId(medicationOptions[0]?.value || '');
     setMedicationPathId(medicationOptions[0]?.value || '');
@@ -349,6 +382,40 @@ export default function App() {
     window.close();
     setStatus('Quit requested');
     setResult('If the tab did not close (browser policy), you can close it manually.');
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setLoginLoading(true);
+    setLoginStatus('Logging in...');
+    try {
+      const base = normalizeBaseUrl(baseUrl);
+      const res  = await fetch(`${base}/auth/login`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: loginEmail, password: loginPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Login failed');
+      localStorage.setItem('nodeHealthCareToken', data.accessToken);
+      localStorage.setItem('nodeHealthCareBackendUrl', normalizeBaseUrl(baseUrl));
+      setAuthToken(data.accessToken);
+      setLoginMode(backendMode);
+      setLoginStatus(`Logged in as ${data.user?.email || loginEmail}`);
+    } catch (err) {
+      setLoginStatus(err.message || 'Login failed');
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('nodeHealthCareToken');
+    localStorage.removeItem('nodeHealthCareBackendUrl');
+    setAuthToken('');
+    setLoginMode(null);
+    setLoginStatus('Logged out');
+    window.location.href = LANDING_URL;
   }
 
   const resolvedPath = useMemo(() => {
@@ -435,6 +502,7 @@ export default function App() {
     const normalizedBase = normalizeBaseUrl(baseUrl);
     const url = normalizedBase + resolvedPath + requestQueryString;
     const options = { method: selected.method, headers: {} };
+    if (authToken) options.headers['Authorization'] = `Bearer ${authToken}`;
 
     if (selected.needsFileUpload) {
       const payload = {};
@@ -492,7 +560,10 @@ export default function App() {
           originalPayload.replaceExistingTable = true;
           response = await fetch(url, {
             method: selected.method,
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+            },
             body: JSON.stringify(originalPayload)
           });
           responseText = await response.text();
@@ -581,9 +652,10 @@ export default function App() {
       const timeoutMs = 20 * 60 * 1000;
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
+      const authHeader = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
       let response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify(payload),
         signal: controller.signal
       });
@@ -613,7 +685,7 @@ export default function App() {
 
         response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeader },
           body: JSON.stringify(payload),
           signal: replaceController.signal
         });
@@ -649,11 +721,90 @@ export default function App() {
     setSelectedId('getAll');
   }
 
+  if (!authToken) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)' }}>
+        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px',
+          padding: '40px 48px', width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontSize: '36px', marginBottom: '8px' }}>🏥</div>
+            <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#f1f5f9', margin: '0 0 6px' }}>
+              Node.js FHIR Demo
+            </h1>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+              {normalizedBaseUrl} — sign in to continue
+            </p>
+          </div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['cmdline', 'docker', 'aws'].map((mode) => (
+                <button key={mode} type="button"
+                  onClick={() => setBackendTarget(mode)}
+                  style={{ flex: 1, padding: '6px 4px', borderRadius: '6px', border: '1px solid',
+                    borderColor: backendMode === mode ? '#0f766e' : '#334155',
+                    background: backendMode === mode ? '#0f766e22' : 'transparent',
+                    color: backendMode === mode ? '#34d399' : '#94a3b8',
+                    fontSize: '11px', fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize' }}>
+                  {mode === 'cmdline' ? 'CLI' : mode === 'aws' ? 'AWS' : 'Docker'}
+                </button>
+              ))}
+            </div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#cbd5e1' }}>
+              Email
+              <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                autoComplete="username" required
+                style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #475569',
+                  background: '#0f172a', color: '#f1f5f9', fontSize: '14px', outline: 'none' }} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#cbd5e1' }}>
+              Password
+              <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                autoComplete="current-password" required
+                style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #475569',
+                  background: '#0f172a', color: '#f1f5f9', fontSize: '14px', outline: 'none' }} />
+            </label>
+            {loginStatus && (
+              <div style={{ fontSize: '13px', color: loginStatus.startsWith('Logged') ? '#34d399' : '#f87171',
+                background: loginStatus.startsWith('Logged') ? '#064e3b22' : '#7f1d1d22',
+                border: `1px solid ${loginStatus.startsWith('Logged') ? '#059669' : '#b91c1c'}`,
+                borderRadius: '6px', padding: '8px 12px' }}>
+                {loginStatus}
+              </div>
+            )}
+            <button type="submit" disabled={loginLoading}
+              style={{ marginTop: '4px', padding: '11px', borderRadius: '6px', border: 'none',
+                background: loginLoading ? '#374151' : 'linear-gradient(135deg,#0f766e,#065f46)',
+                color: '#fff', fontWeight: 700, fontSize: '15px',
+                cursor: loginLoading ? 'not-allowed' : 'pointer' }}>
+              {loginLoading ? 'Signing in…' : 'Sign In'}
+            </button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <a href={LANDING_URL} style={{ fontSize: '13px', color: '#60a5fa', textDecoration: 'none' }}>
+              ← Back to Landing Page
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       <section className="hero panel">
         <div>
-          <h1>FHIR API Test Client</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <h1>FHIR API Test Client</h1>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <a href={LANDING_URL}
+                 style={{ fontSize: '13px', color: '#60a5fa', textDecoration: 'none', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '4px 10px' }}
+              >🏠 Landing Page</a>
+              <button type="button" onClick={handleLogout}
+                style={{ fontSize: '13px', color: '#f87171', background: 'none', border: '1px solid #7f1d1d', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer' }}
+              >Sign Out</button>
+            </div>
+          </div>
           <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
           <div className="hero-status" aria-live="polite">
             <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
@@ -671,17 +822,17 @@ export default function App() {
         <h2>API Pull Down</h2>
         <form onSubmit={runRequest} className="form">
           <div className="backend-group" role="group" aria-label="Backend target">
-            <button type="button" className={backendMode === 'standalone' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('standalone')}>
-              Standalone
+            <button type="button" className={backendMode === 'cmdline' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('cmdline')} disabled={modeLocked ? loginMode !== 'cmdline' : IS_FARGATE} title={!modeLocked && IS_FARGATE ? 'Local only' : undefined}>
+              Command Line
             </button>
-            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')}>
+            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={modeLocked ? loginMode !== 'docker' : IS_FARGATE} title={!modeLocked && IS_FARGATE ? 'Local only' : undefined}>
               Docker
             </button>
-            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')}>
-              AWS
+            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => { if (!modeLocked || loginMode === 'aws') setBackendTarget('aws'); }} disabled={modeLocked && loginMode !== 'aws'}>
+              AWS{IS_FARGATE ? ' ✓' : ''}
             </button>
           </div>
-          <div className="meta">Default is Docker. Use Standalone for local port 4002 and AWS for the deployed Fargate backend.</div>
+          <div className="meta">Local: Command Line (port 4001) or Docker (port 4003). Use AWS for the deployed backend.</div>
           <label>
             <input value={baseUrl} onChange={handleBaseUrlChange} />
           </label>

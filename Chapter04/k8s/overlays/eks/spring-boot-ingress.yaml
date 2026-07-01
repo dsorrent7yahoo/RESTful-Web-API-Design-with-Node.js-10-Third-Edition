@@ -1,0 +1,165 @@
+# Dedicated ALB ingress for the Spring Boot backend.
+# Uses a separate ALB group so it doesn't conflict with the Flask/microservices ALB.
+#
+# After applying, get the ALB DNS name with:
+#   kubectl get ingress spring-boot-alb -n healthcare
+#
+# Set the Angular frontend BACKEND_URL to:
+#   http://<alb-dns>
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-boot-alb
+  namespace: healthcare
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: healthcare-spring-boot
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # Subnets must be tagged: kubernetes.io/role/elb=1
+    # alb.ingress.kubernetes.io/subnets: subnet-xxx,subnet-yyy
+spec:
+  rules:
+    - http:
+        paths:
+          # ── Auth ──────────────────────────────────────────────────────────
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Medications ───────────────────────────────────────────────────
+          - path: /medications
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Patients ──────────────────────────────────────────────────────
+          - path: /patients
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Tables / Database ─────────────────────────────────────────────
+          - path: /tables
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /databases
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Claims ────────────────────────────────────────────────────────
+          - path: /claims
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Upload / Export ───────────────────────────────────────────────
+          - path: /upload
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /export
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── SQS / Messaging ───────────────────────────────────────────────
+          - path: /sqs
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /messages
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Glue / Athena / S3 ────────────────────────────────────────────
+          - path: /glue
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /athena
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /s3
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── API Docs / Schema ─────────────────────────────────────────────
+          - path: /api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          - path: /openapi.json
+            pathType: Exact
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003
+
+          # ── Health (catch-all lowest priority) ────────────────────────────
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: spring-boot-backend
+                port:
+                  number: 4003

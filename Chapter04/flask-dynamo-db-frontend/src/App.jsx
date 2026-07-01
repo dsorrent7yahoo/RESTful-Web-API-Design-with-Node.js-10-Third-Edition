@@ -102,14 +102,20 @@ const TABLE_COLUMNS = [
   'dispenses', 'totalCost', 'reasonCode', 'reasonDescription',
 ];
 
+// True when the page is served from a remote host (EC2, Fargate, any non-localhost)
+const IS_FARGATE = !['localhost', '127.0.0.1'].includes(window.location.hostname);
+// Single gateway entry point — auto-derives the host so no hardcoded IP is needed
+const GATEWAY_ORIGIN = `${window.location.protocol}//${window.location.hostname}:8080`;
+
 const BACKEND_PRESETS = {
   cmdline: 'http://localhost:4001',   // python app.py
   docker:  'http://localhost:4001',   // docker compose
-  aws:     'http://sorrentino-fargate-fhir-demo-alb-1996236158.us-east-1.elb.amazonaws.com', // AWS Fargate ALB
+  aws:     `${GATEWAY_ORIGIN}/proxy/flask`,
 };
-
-// True when the page is served from the Fargate ALB (not localhost)
-const IS_FARGATE = window.location.hostname === new URL(BACKEND_PRESETS.aws).hostname;
+// Landing page: port 5180 locally, root domain on EC2 / production
+const LANDING_URL = window.location.hostname === 'localhost'
+  ? `${window.location.protocol}//localhost:5180`
+  : `${window.location.protocol}//${window.location.hostname}`;
 
 // ---------------------------------------------------------------------------
 // Pure helpers
@@ -208,7 +214,7 @@ function defaultBodyFor(id) {
 // Component
 // ---------------------------------------------------------------------------
 export default function App() {
-  const [authToken, setAuthToken]               = useState(() => localStorage.getItem('healthCareToken') || '');
+  const [authToken, setAuthToken]               = useState('');
   const [loginEmail, setLoginEmail]             = useState('react-dgs@yahoo.com');
   const [loginPassword, setLoginPassword]       = useState('python');
   const [loginStatus, setLoginStatus]           = useState('');
@@ -216,6 +222,7 @@ export default function App() {
 
   const [baseUrl, setBaseUrl]                   = useState(IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline);
   const [backendMode, setBackendMode]           = useState(IS_FARGATE ? 'aws' : 'cmdline');
+  const [loginMode, setLoginMode]               = useState(null);
   const [selectedId, setSelectedId]             = useState('getAll');
   const [medicationId, setMedicationId]         = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -261,7 +268,7 @@ export default function App() {
 
   // Glue Data Lake tables
   const [glueTables, setGlueTables]                     = useState([]);
-  const [glueDbName, setGlueDbName]                     = useState('healthcare_data_lake');
+  const [glueDbName, setGlueDbName]                     = useState('fhir-table-db');
   const [glueTablesLoading, setGlueTablesLoading]       = useState(false);
 
   // Source browser
@@ -278,6 +285,7 @@ export default function App() {
   const [showDocsModal, setShowDocsModal]   = useState(false);
   const [showGlueModal, setShowGlueModal]     = useState(false);
   const [showClaimsModal, setShowClaimsModal] = useState(false);
+  const [showClaimsViewModal, setShowClaimsViewModal] = useState(false);
   const [showSQSModal, setShowSQSModal]       = useState(false);
   const [showAthenaModal, setShowAthenaModal] = useState(false);
   const [quickGenerating, setQuickGenerating] = useState(false);
@@ -294,6 +302,8 @@ export default function App() {
   const dynamoTableRows = useMemo(() => chunkTableNames(dynamoTables, 5), [dynamoTables]);
   const normalizedBaseUrl = useMemo(() => normalizeBaseUrl(baseUrl), [baseUrl]);
   const backendModeLabel  = useMemo(() => getBackendModeLabel(backendMode), [backendMode]);
+  // After login: lock buttons to the mode used at login; cmdline unlocks all
+  const modeLocked = loginMode !== null && loginMode !== 'cmdline';
 
   // Auth helpers (Flask uses JWT in localStorage)
   function getAuthToken() { return authToken; }
@@ -362,6 +372,7 @@ export default function App() {
         const tok = data.accessToken || data.token;
         localStorage.setItem('healthCareToken', tok);
         setAuthToken(tok);
+        setLoginMode(backendMode);
         setLoginStatus(`Logged in as ${data.user?.email || loginEmail}`);
       } else {
         setLoginStatus(data.message || data.error || `Login failed (${res.status})`);
@@ -376,7 +387,9 @@ export default function App() {
   function handleLogout() {
     localStorage.removeItem('healthCareToken');
     setAuthToken('');
+    setLoginMode(null);
     setLoginStatus('Logged out');
+    window.location.href = LANDING_URL;
   }
 
   // Auto-populate body template when endpoint changes
@@ -425,7 +438,7 @@ export default function App() {
 
   // Load Glue Data Lake tables
   async function loadGlueTables(db) {
-    const database = (db || glueDbName || 'healthcare_data_lake').trim();
+    const database = (db || glueDbName || 'fhir-table-db').trim();
     if (!database) return;
     setGlueTablesLoading(true);
     try {
@@ -878,6 +891,10 @@ export default function App() {
   const YAML_FILES = [
     { path: '.github/workflows/flask-dynamo-db-backend.yml', label: 'flask-dynamo-db-backend.yml — CI/CD pipeline' },
   ];
+  const LAMBDA_FILES = [
+    { path: 'lambdas/synthetic_fhir_claims.py', label: 'synthetic_fhir_claims.py — generates synthetic FHIR claims CSV' },
+    { path: 'lambdas/claims_cleaner.py',        label: 'claims_cleaner.py — clean CSV + register in Glue catalog' },
+  ];
 
   function switchDocsMode(mode) {
     setDocsMode(mode);
@@ -887,7 +904,9 @@ export default function App() {
     else if (mode === 'terraform') loadSourceFile(TERRAFORM_FILES[0].path);
     else if (mode === 'docker')    loadSourceFile(DOCKER_FILES[0].path);
     else if (mode === 'yaml')      loadSourceFile(YAML_FILES[0].path);
-    else if (mode === 'browse')    { setSrcTree([]); setSrcTreeLoaded(false); loadSourceTree(); }
+    else if (mode === 'lambdas')      loadSourceFile(LAMBDA_FILES[0].path);
+    else if (mode === 'permissions') loadSourceFile('aws-permissions.md');
+    else if (mode === 'browse')      { setSrcTree([]); setSrcTreeLoaded(false); loadSourceTree(); }
   }
 
   async function loadSourceFile(path) {
@@ -945,6 +964,65 @@ export default function App() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
+
+  // Full-screen login gate — shown when no JWT token is present
+  if (!authToken) {
+    return (
+      <main style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: 'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)' }}>
+        <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: '12px',
+          padding: '40px 48px', width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <div style={{ fontSize: '36px', marginBottom: '8px' }}>🏥</div>
+            <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#f1f5f9', margin: '0 0 6px' }}>
+              Flask FHIR Demo
+            </h1>
+            <p style={{ fontSize: '13px', color: '#94a3b8', margin: 0 }}>
+              {IS_FARGATE ? 'AWS Fargate' : 'localhost:4001'} — sign in to continue
+            </p>
+          </div>
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#cbd5e1' }}>
+              Email
+              <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+                autoComplete="username" required
+                style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #475569',
+                  background: '#0f172a', color: '#f1f5f9', fontSize: '14px', outline: 'none' }} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', fontWeight: 600, color: '#cbd5e1' }}>
+              Password
+              <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                autoComplete="current-password" required
+                style={{ padding: '10px 12px', borderRadius: '6px', border: '1px solid #475569',
+                  background: '#0f172a', color: '#f1f5f9', fontSize: '14px', outline: 'none' }} />
+            </label>
+            {loginStatus && (
+              <div style={{ fontSize: '13px', color: loginStatus.startsWith('Logged') ? '#34d399' : '#f87171',
+                background: loginStatus.startsWith('Logged') ? '#064e3b22' : '#7f1d1d22',
+                border: `1px solid ${loginStatus.startsWith('Logged') ? '#059669' : '#b91c1c'}`,
+                borderRadius: '6px', padding: '8px 12px' }}>
+                {loginStatus}
+              </div>
+            )}
+            <button type="submit" disabled={loginLoading}
+              style={{ marginTop: '4px', padding: '11px', borderRadius: '6px', border: 'none',
+                background: loginLoading ? '#374151' : 'linear-gradient(135deg,#0f766e,#065f46)',
+                color: '#fff', fontWeight: 700, fontSize: '15px',
+                cursor: loginLoading ? 'not-allowed' : 'pointer' }}>
+              {loginLoading ? 'Signing in…' : 'Sign In'}
+            </button>
+          </form>
+          <div style={{ textAlign: 'center', marginTop: '20px' }}>
+            <a href={LANDING_URL}
+               style={{ fontSize: '13px', color: '#60a5fa', textDecoration: 'none' }}>
+              ← Back to Landing Page
+            </a>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="page">
       {/* Hero */}
@@ -965,13 +1043,13 @@ export default function App() {
           <div style={{ marginTop: '16px' }}>
             <div style={{ fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#0f766e', marginBottom: '8px' }}>Connect to backend</div>
             <div className="backend-group" role="group" aria-label="Backend target">
-              <button type="button" className={backendMode === 'cmdline' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('cmdline')} disabled={IS_FARGATE} title={IS_FARGATE ? 'Local computer only' : undefined}>
+              <button type="button" className={backendMode === 'cmdline' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('cmdline')} disabled={modeLocked ? loginMode !== 'cmdline' : IS_FARGATE} title={!modeLocked && IS_FARGATE ? 'Local computer only' : undefined}>
                 Command Line
               </button>
-              <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={IS_FARGATE} title={IS_FARGATE ? 'Local computer only' : undefined}>
+              <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={modeLocked ? loginMode !== 'docker' : IS_FARGATE} title={!modeLocked && IS_FARGATE ? 'Local computer only' : undefined}>
                 Docker
               </button>
-              <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => { if (!IS_FARGATE) setBackendTarget('aws'); }} style={IS_FARGATE ? {cursor:'default'} : {}}>
+              <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => { if (!modeLocked || loginMode === 'aws') setBackendTarget('aws'); }} disabled={modeLocked && loginMode !== 'aws'}>
                 AWS Fargate{IS_FARGATE ? ' ✓' : ''}
               </button>
             </div>
@@ -1003,24 +1081,16 @@ export default function App() {
               🗄️ Load Glue Catalog
             </button>
             <button type="button"
-              onClick={() => setShowClaimsModal(true)}
+              onClick={() => setShowClaimsViewModal(true)}
               style={{ background: 'linear-gradient(135deg,#0f766e,#0e7490)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
               🏥 synthetic_fhir_claims_lambda
             </button>
             <button type="button"
-              onClick={handleQuickGenerate}
-              disabled={quickGenerating}
-              style={{ background: quickGenerating ? '#374151' : 'linear-gradient(135deg,#065f46,#047857)', color: '#6ee7b7', border: '1px solid #059669',
-                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: quickGenerating ? 'not-allowed' : 'pointer', opacity: quickGenerating ? 0.7 : 1 }}>
-              {quickGenerating ? '⏳ Generating…' : '⚡ synthetic_fhir_claims_lambda'}
-            </button>
-            <button type="button"
-              onClick={handleQuickClean}
-              disabled={quickCleaning}
-              style={{ background: quickCleaning ? '#374151' : 'linear-gradient(135deg,#1e3a5f,#1a73e8)', color: '#bfdbfe', border: '1px solid #2563eb',
-                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: quickCleaning ? 'not-allowed' : 'pointer', opacity: quickCleaning ? 0.7 : 1 }}>
-              {quickCleaning ? '⏳ Cleaning…' : '⚡ claims_clean_&_glue_catalog_lambda'}
+              onClick={() => setShowClaimsModal(true)}
+              style={{ background: 'linear-gradient(135deg,#065f46,#047857)', color: '#6ee7b7', border: '1px solid #059669',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              🗄️ claims_clean_&amp;_glue_catalog_lambda
             </button>
             <button type="button"
               onClick={() => setShowSQSModal(true)}
@@ -1054,6 +1124,9 @@ export default function App() {
             {loginStatus && <div className="meta">{loginStatus}</div>}
             <button type="button" onClick={handleLogout} style={{ background: 'linear-gradient(135deg,#b91c1c,#7f1d1d)' }}>
               Log Out
+            </button>
+            <button type="button" onClick={() => window.location.href = LANDING_URL} style={{ background: 'linear-gradient(135deg,#1d4ed8,#1e3a8a)' }}>
+              🏠 Landing Page
             </button>
           </div>
         ) : (
@@ -1131,45 +1204,6 @@ export default function App() {
         <button type="button" style={{ marginTop: '0.75rem' }} onClick={() => loadDynamoTables(baseUrl)}>
           Refresh Table List
         </button>
-      </section>
-
-      {/* Glue Data Lake Tables */}
-      <section className="panel loaded-tables-panel">
-        <h2>Glue Data Lake Tables</h2>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-          <input
-            style={{ flex: 1, fontSize: '13px', fontFamily: 'monospace' }}
-            value={glueDbName}
-            onChange={(e) => setGlueDbName(e.target.value)}
-            placeholder="Glue database name"
-          />
-          <button type="button" style={{ whiteSpace: 'nowrap', fontSize: '13px', padding: '6px 14px' }}
-            onClick={() => loadGlueTables(glueDbName)} disabled={glueTablesLoading}>
-            {glueTablesLoading ? 'Loading...' : 'Refresh'}
-          </button>
-        </div>
-        {glueTablesLoading ? (
-          <div className="progress-wrap"><div className="progress-bar" /></div>
-        ) : glueTables.length === 0 ? (
-          <div className="meta">No tables found. Run the Data Lake pipeline or enter a database name and refresh.</div>
-        ) : (
-          <>
-            <div className="meta" style={{ marginBottom: '8px' }}>
-              {glueTables.length} table{glueTables.length !== 1 ? 's' : ''} in <code>{glueDbName}</code>
-            </div>
-            <div className="dynamo-table-grid" aria-label="Glue table names">
-              {chunkTableNames(glueTables, 5).map((row, ri) => (
-                <div className="dynamo-table-row" key={`glue-row-${ri}`}>
-                  {row.map((t) => (
-                    <span className="dynamo-table-name glue-table-name" key={t} title={`s3://healthcare-exports-005905648819/datalake/${t}/`}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </>
-        )}
       </section>
 
       {/* CSV → DynamoDB Uploader modal (multipart /upload/file) */}
@@ -1411,7 +1445,7 @@ export default function App() {
         srcLoading={srcLoading} srcTree={srcTree}
         renderSrcTree={renderSrcTree} setSrcFullscreen={setSrcFullscreen}
         loadSourceFile={loadSourceFile}
-        TERRAFORM_FILES={TERRAFORM_FILES} DOCKER_FILES={DOCKER_FILES} YAML_FILES={YAML_FILES}
+        TERRAFORM_FILES={TERRAFORM_FILES} DOCKER_FILES={DOCKER_FILES} YAML_FILES={YAML_FILES} LAMBDA_FILES={LAMBDA_FILES}
       />
 
       {/* Glue Catalog Uploader Modal */}
@@ -1444,10 +1478,19 @@ export default function App() {
         </div>
       )}
 
-      {/* FHIR Claims Generator Modal */}
+      {/* Stage 1 — Invoke lambda to generate CSV, then view staged files */}
+      <ClaimsGenerator
+        show={showClaimsViewModal} onClose={() => setShowClaimsViewModal(false)}
+        baseUrl={baseUrl} authToken={authToken}
+        catalogEnabled={false}
+        generateOnOpen={true}
+      />
+
+      {/* Stage 2 — Clean & Catalog into Glue */}
       <ClaimsGenerator
         show={showClaimsModal} onClose={() => setShowClaimsModal(false)}
         baseUrl={baseUrl} authToken={authToken}
+        catalogEnabled={true}
         onGenerateSuccess={() => { setShowClaimsModal(false); setShowSQSModal(true); }}
       />
 
@@ -1470,12 +1513,53 @@ export default function App() {
           Browse the full project source — Flask backend, React UI, Terraform infrastructure, Docker config, Jupyter notebooks, and GitHub Actions CI/CD pipelines.
         </p>
 
+        {/* Lambda quick-view buttons */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', alignSelf: 'center', whiteSpace: 'nowrap' }}>Lambda Functions:</span>
+          {[
+            { path: 'lambdas/synthetic_fhir_claims.py', label: '🧬 synthetic_fhir_claims.py', desc: 'generates CSV' },
+            { path: 'lambdas/claims_cleaner.py',        label: '🧹 claims_cleaner.py',        desc: 'clean + Glue catalog' },
+          ].map(({ path, label, desc }) => (
+            <button key={path} type="button"
+              onClick={() => { setSrcQuickFile(path); loadSourceFile(path); }}
+              style={{ background: srcQuickFile === path ? '#1e293b' : '#f0f9ff',
+                color: srcQuickFile === path ? '#7dd3fc' : '#0369a1',
+                border: '1px solid ' + (srcQuickFile === path ? '#334155' : '#bae6fd'),
+                borderRadius: '6px', padding: '6px 14px', fontWeight: 700,
+                fontSize: '13px', cursor: 'pointer', fontFamily: 'monospace' }}>
+              {label} <span style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: '12px',
+                color: srcQuickFile === path ? '#94a3b8' : '#64748b' }}>({desc})</span>
+            </button>
+          ))}
+        </div>
+
+        {/* AWS Reference docs quick-view */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '14px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', alignSelf: 'center', whiteSpace: 'nowrap' }}>AWS Reference:</span>
+          {[
+            { path: 'aws-permissions.md', label: '🔐 aws-permissions.md', desc: 'IAM policies & CLI commands' },
+            { path: 'aws-cli-deploy.md',   label: '🚀 aws-cli-deploy.md',   desc: 'Docker · Fargate deploy guide' },
+          ].map(({ path, label, desc }) => (
+            <button key={path} type="button"
+              onClick={() => { setSrcQuickFile(path); loadSourceFile(path); }}
+              style={{ background: srcQuickFile === path ? '#1e293b' : '#f0fdf4',
+                color: srcQuickFile === path ? '#7dd3fc' : '#166534',
+                border: '1px solid ' + (srcQuickFile === path ? '#334155' : '#bbf7d0'),
+                borderRadius: '6px', padding: '6px 14px', fontWeight: 700,
+                fontSize: '13px', cursor: 'pointer', fontFamily: 'monospace' }}>
+              {label} <span style={{ fontFamily: 'sans-serif', fontWeight: 400, fontSize: '12px',
+                color: srcQuickFile === path ? '#94a3b8' : '#64748b' }}>({desc})</span>
+            </button>
+          ))}
+        </div>
+
         {/* Quick-access dropdown */}
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap' }}>
           <label style={{ fontSize: '13px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>Quick View:</label>
           <select value={srcQuickFile} onChange={(e) => setSrcQuickFile(e.target.value)}
             style={{ flex: 1, minWidth: '220px', fontSize: '13px', padding: '6px 8px', border: '1px solid #d1d5db', borderRadius: '6px', background: '#fff' }}>
             <option value="">— select a key file —</option>
+            <option value="aws-permissions.md">🔐 aws-permissions.md  (IAM inline policies &amp; AWS CLI commands)</option>
             <option value="aws-cli-deploy.md">🚀 aws-cli-deploy.md  (Docker · Terraform · Fargate deploy guide)</option>
             <option value="README.md">📖 README.md  (project overview, Docker &amp; AWS deploy guide)</option>
             <optgroup label="Flask App">
@@ -1492,6 +1576,10 @@ export default function App() {
             </optgroup>
             <optgroup label="Modules">
               <option value="modules/auth.py">modules/auth.py  (user management)</option>
+            </optgroup>
+            <optgroup label="Lambda Functions">
+              <option value="lambdas/synthetic_fhir_claims.py">lambdas/synthetic_fhir_claims.py  (generates synthetic FHIR claims CSV)</option>
+              <option value="lambdas/claims_cleaner.py">lambdas/claims_cleaner.py  (cleans CSV + registers in Glue catalog)</option>
             </optgroup>
           </select>
           <button type="button" disabled={!srcQuickFile || srcLoading}

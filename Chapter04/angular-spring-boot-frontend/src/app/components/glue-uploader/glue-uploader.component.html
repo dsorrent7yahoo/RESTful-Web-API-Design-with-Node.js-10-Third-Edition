@@ -1,0 +1,162 @@
+<div class="glue-uploader overlay-panel">
+  <div class="panel-header">
+    <h2>☁️ S3 / Glue Catalog Manager</h2>
+    <button mat-icon-button (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+  </div>
+
+  @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+  <mat-tab-group animationDuration="150ms">
+
+    <!-- ── Upload & Register ─────────────────────────────────── -->
+    <mat-tab label="⬆ Upload & Register">
+      <div class="tab-body">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Target Bucket</mat-label>
+            <mat-select [ngModel]="selectedBucket()" (ngModelChange)="selectedBucket.set($event)">
+              @for (b of buckets(); track b) {
+                <mat-option [value]="b">{{ b }}</mat-option>
+              }
+              <mat-option [value]="selectedBucket()">{{ selectedBucket() }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Prefix (path/)</mat-label>
+            <input matInput [ngModel]="uploadPrefix()" (ngModelChange)="uploadPrefix.set($event)" placeholder="fhir/" />
+          </mat-form-field>
+        </div>
+
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Glue Database</mat-label>
+            <mat-select [ngModel]="selectedDb()" (ngModelChange)="selectedDb.set($event)">
+              @for (d of databases(); track d) {
+                <mat-option [value]="d">{{ d }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-1">
+            <mat-label>Table Name</mat-label>
+            <input matInput [ngModel]="uploadTable()" (ngModelChange)="uploadTable.set($event)" placeholder="my_table" />
+          </mat-form-field>
+        </div>
+
+        <div class="file-row">
+          <label class="file-label">
+            <mat-icon>attach_file</mat-icon>
+            {{ uploadFile()?.name ?? 'Choose CSV file…' }}
+            <input type="file" accept=".csv" (change)="onFileSelected($event)" hidden />
+          </label>
+        </div>
+
+        <div class="btn-row">
+          <button mat-raised-button color="primary" (click)="exportToS3()" [disabled]="loading() || !uploadFile()">
+            <mat-icon>cloud_upload</mat-icon> Export to S3
+          </button>
+          <button mat-raised-button color="accent" (click)="registerGlueTable()" [disabled]="loading() || !uploadTable()">
+            <mat-icon>table_chart</mat-icon> Register in Glue
+          </button>
+        </div>
+
+        @if (result()) {
+          <pre class="result-box">{{ result() | json }}</pre>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ── S3 Browser ─────────────────────────────────────────── -->
+    <mat-tab label="🗂 S3 Browser">
+      <div class="tab-body">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Bucket</mat-label>
+            <mat-select [ngModel]="selectedBucket()" (ngModelChange)="selectedBucket.set($event)">
+              @for (b of buckets(); track b) {
+                <mat-option [value]="b">{{ b }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Prefix filter</mat-label>
+            <input matInput [ngModel]="s3Prefix()" (ngModelChange)="s3Prefix.set($event)" placeholder="fhir/" />
+          </mat-form-field>
+          <button mat-raised-button (click)="listObjects()" [disabled]="loading()">
+            <mat-icon>search</mat-icon> List
+          </button>
+        </div>
+
+        @if (s3Objects().length) {
+          <table class="data-table">
+            <thead><tr><th>Key</th><th>Size</th><th>Modified</th></tr></thead>
+            <tbody>
+              @for (o of s3Objects(); track o.key) {
+                <tr>
+                  <td class="key-cell">{{ o.key }}</td>
+                  <td>{{ formatSize(o.size) }}</td>
+                  <td>{{ o.lastModified | date:'short' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else if (!loading()) {
+          <p class="muted">No objects — choose a bucket and click List.</p>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ── Glue Catalog ───────────────────────────────────────── -->
+    <mat-tab label="🏷 Glue Catalog">
+      <div class="tab-body">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Database</mat-label>
+            <mat-select [ngModel]="selectedDb()" (ngModelChange)="selectedDb.set($event)">
+              @for (d of databases(); track d) {
+                <mat-option [value]="d">{{ d }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-raised-button (click)="loadGlueTables()" [disabled]="loading()">
+            <mat-icon>refresh</mat-icon> Load Tables
+          </button>
+        </div>
+
+        @if (glueTables().length) {
+          <div class="chip-row">
+            @for (t of glueTables(); track t.name) {
+              <mat-chip>{{ t.name }}</mat-chip>
+            }
+          </div>
+        } @else if (!loading()) {
+          <p class="muted">No tables — select a database and click Load Tables.</p>
+        }
+      </div>
+    </mat-tab>
+
+    <!-- ── Full Pipeline ──────────────────────────────────────── -->
+    <mat-tab label="🚀 Export Pipeline">
+      <div class="tab-body">
+        <p class="muted">Export ALL DynamoDB tables to S3 and auto-register each in Glue Catalog.</p>
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Bucket</mat-label>
+            <input matInput [ngModel]="pipelineBucket()" (ngModelChange)="pipelineBucket.set($event)" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="flex-2">
+            <mat-label>Prefix</mat-label>
+            <input matInput [ngModel]="pipelinePrefix()" (ngModelChange)="pipelinePrefix.set($event)" />
+          </mat-form-field>
+        </div>
+        <button mat-raised-button color="warn" (click)="runPipeline()" [disabled]="loading()">
+          <mat-icon>play_circle</mat-icon> Run Full Pipeline
+        </button>
+
+        @if (result()) {
+          <pre class="result-box">{{ result() | json }}</pre>
+        }
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+</div>

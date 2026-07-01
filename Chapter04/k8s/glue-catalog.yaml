@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glue-catalog
+  namespace: healthcare
+  labels:
+    app: glue-catalog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glue-catalog
+  template:
+    metadata:
+      labels:
+        app: glue-catalog
+    spec:
+      containers:
+        - name: glue-catalog
+          image: glue-catalog:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4010
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4010
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4010
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: glue-catalog
+  namespace: healthcare
+spec:
+  selector:
+    app: glue-catalog
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4010
+      targetPort: 4010
+      nodePort: 30000

@@ -1,0 +1,45 @@
+server:
+  port: 4003
+
+spring:
+  application:
+    name: healthcare-api
+  jackson:
+    default-property-inclusion: non_null
+
+healthcare:
+  jwt:
+    secret: health-care-dev-secret
+    expiration-minutes: 60
+  aws:
+    region: us-east-1
+    dynamodb:
+      tables:
+        medications: medications
+        users: health-care-users
+        pending-users: pending-users
+        email-log: dgs-sqs-email-log
+        patients: patients
+    s3:
+      staging-bucket: dgs-glue-staging
+      claims-prefix: claims/
+      clean-prefix: claims-parquet/
+      athena-output-prefix: athena-results/
+      patients-prefix: patients/
+      encounters-prefix: encounters/
+    sqs:
+      queue-url: https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results
+      dlq-queue-url: https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results-dlq
+    athena:
+      database: fhir-table-db
+      workgroup: primary
+      max-poll-seconds: 45
+    glue:
+      database: fhir-table-db
+  approval:
+    email: dsorrent7@gmail.com
+
+logging:
+  level:
+    com.healthcare: DEBUG
+    software.amazon.awssdk: WARN
