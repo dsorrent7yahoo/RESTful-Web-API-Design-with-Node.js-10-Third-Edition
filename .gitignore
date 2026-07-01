@@ -1,3 +1,17 @@
 **/node_modules/
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/.env
+**/dist/
+**/build/
+**/.gradle/
+**/target/
+**/*.class
+**/terraform.tfvars
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.backup
 Chapter04/coherent-11-07-2022/dicom/
 Chapter04/coherent-11-07-2022/csv/observations.csv

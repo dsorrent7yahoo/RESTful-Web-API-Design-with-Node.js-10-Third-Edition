@@ -1,4 +1,18 @@
 services:
+  landing:
+    build:
+      context: ./landing-page
+    image: healthcare-landing:local
+    container_name: healthcare-landing
+    ports:
+      - "5180:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   flask-backend:
     build:
       context: .                              # must be run from Chapter04/

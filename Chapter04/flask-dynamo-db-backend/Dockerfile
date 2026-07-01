@@ -21,6 +21,7 @@ RUN pip install -r /app/requirements.txt
 
 COPY flask-dynamo-db-backend /app
 COPY README.md /app/README.md
+COPY aws-cli-deploy.md /app/aws-cli-deploy.md
 COPY coherent-11-07-2022 /coherent-11-07-2022
 # Source browser — infrastructure & CI files accessible via /source/file
 COPY infra/ /app/infra/

@@ -1,0 +1,21 @@
+# Fargate allocates resources per pod based on the container requests.
+# Valid Fargate CPU/memory combinations:
+#   0.25 vCPU → 0.5, 1, 2 GB
+#   0.5  vCPU → 1–4 GB
+#   1    vCPU → 2–8 GB
+#
+# These lightweight FastAPI services fit comfortably in 0.5 vCPU / 1 GB.
+# Athena-client and patients-encounters do heavier work; bump if needed.
+#
+# Cost at 0.5 vCPU / 1 GB (per pod, 24 × 7):
+#   0.5 × $0.04048/hr + 1 × $0.004445/hr ≈ $0.025/hr ≈ $18/month per pod
+#   6 pods ≈ $108/month  (vs ~$133/month for 2 × t3.medium EC2 nodes)
+- op: add
+  path: /spec/template/spec/containers/0/resources
+  value:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"

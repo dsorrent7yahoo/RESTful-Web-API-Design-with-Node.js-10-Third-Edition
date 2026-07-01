@@ -1,0 +1,51 @@
+<div class="login-page">
+  <mat-card class="login-card">
+    <mat-card-header>
+      <mat-card-title>
+        <span class="logo">🏥 Healthcare API</span>
+      </mat-card-title>
+      <mat-card-subtitle>Spring Boot + Angular Client</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Backend</mat-label>
+          <mat-select formControlName="backend">
+            @for (p of presets; track p[0]) {
+              <mat-option [value]="p[0]">{{ p[0] }} — {{ p[1] }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input matInput formControlName="email" type="email" autocomplete="email">
+          <mat-icon matSuffix>email</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input matInput formControlName="password" type="password" autocomplete="current-password">
+          <mat-icon matSuffix>lock</mat-icon>
+        </mat-form-field>
+
+        @if (error()) {
+          <p class="error-msg">{{ error() }}</p>
+        }
+
+        <button mat-raised-button color="primary" type="submit"
+                class="full-width submit-btn" [disabled]="loading() || form.invalid">
+          @if (loading()) {
+            <mat-progress-spinner diameter="20" mode="indeterminate" />
+          } @else {
+            Sign In
+          }
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+  <div class="back-link">
+    <a [href]="landingUrl">← Back to Landing Page</a>
+  </div>
+</div>

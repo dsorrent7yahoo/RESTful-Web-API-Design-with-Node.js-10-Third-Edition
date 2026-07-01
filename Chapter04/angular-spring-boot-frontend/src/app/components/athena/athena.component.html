@@ -1,0 +1,77 @@
+<div class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-header">
+      <span>🗄 Athena SQL Client · {{ selectedDb() }}</span>
+      <button mat-icon-button (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+    <div class="athena-layout">
+      <!-- Sidebar: tables list -->
+      <div class="sidebar">
+        <div class="sidebar-title">Tables ({{ tables().length }})</div>
+        @for (t of tables(); track t) {
+          <div class="table-item" [class.active]="selectedTbl() === t" (click)="selectTable(t)">
+            {{ t }}
+          </div>
+        }
+      </div>
+
+      <!-- Main: SQL editor -->
+      <div class="main-panel">
+
+        <!-- AI SQL Generation -->
+        <div class="ai-row">
+          <mat-form-field appearance="outline" class="ai-input">
+            <mat-label>🤖 Ask AI to write SQL</mat-label>
+            <input matInput [ngModel]="aiPrompt()" (ngModelChange)="aiPrompt.set($event)"
+                   [ngModelOptions]="{standalone:true}"
+                   placeholder="Show me the top 10 patients by claim count"
+                   (keyup.enter)="generateSql()" />
+          </mat-form-field>
+          <button mat-raised-button color="primary" (click)="generateSql()"
+                  [disabled]="aiLoading() || !aiPrompt()">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ aiLoading() ? 'Generating…' : 'Generate SQL' }}
+          </button>
+        </div>
+        @if (aiResult()?.error) {
+          <pre class="response-box error-box">{{ aiResult().error | json }}</pre>
+        }
+        @if (aiResult()?.model) {
+          <div class="ai-meta">Model: {{ aiResult().model }} · DB: {{ aiResult().database }}</div>
+        }
+
+        <textarea [(ngModel)]="sql" [ngModelOptions]="{standalone:true}"
+                  class="sql-editor" rows="5"></textarea>
+        <button mat-raised-button color="accent" (click)="execute()" [disabled]="loading()">
+          ▶ Execute
+        </button>
+
+        @if (queryResult() && !queryResult().error) {
+          <div class="result-meta">
+            {{ resultRows.length }} rows · {{ queryResult().elapsed_ms }}ms ·
+            {{ (queryResult().scanned_bytes / 1024).toFixed(1) }} KB scanned
+          </div>
+          <div class="result-table-wrap">
+            <table class="result-table">
+              <thead>
+                <tr>@for (c of resultColumns; track c) { <th>{{ c }}</th> }</tr>
+              </thead>
+              <tbody>
+                @for (row of resultRows; track $index) {
+                  <tr>@for (c of resultColumns; track c) { <td>{{ row[c] }}</td> }</tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (queryResult()?.error) {
+          <pre class="response-box">{{ queryResult().error | json }}</pre>
+        }
+      </div>
+    </div>
+  </div>
+</div>

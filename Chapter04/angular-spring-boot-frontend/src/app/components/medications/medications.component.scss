@@ -1,0 +1,40 @@
+.med-container { padding: 16px; }
+
+.toolbar-row {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+  .section-title { font-weight: 700; color: #7dd3fc; flex: 1; }
+}
+
+.filter-input {
+  background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+  padding: 6px 12px; border-radius: 6px; font-size: 13px; width: 260px;
+  &:focus { outline: none; border-color: #58a6ff; }
+}
+
+.upload-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px dashed #58a6ff; border-radius: 6px; padding: 4px 12px;
+  cursor: pointer; font-size: 13px; color: #58a6ff;
+  &:hover { background: rgba(88,166,255,.1); }
+}
+
+.table-wrapper { max-height: 420px; overflow-y: auto; }
+
+.mono  { font-family: 'Consolas', monospace; font-size: 12px; }
+.truncate { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.count-info { font-size: 12px; color: #8b949e; margin: 6px 0 0; }
+
+.form-panel {
+  margin-top: 16px;
+  .form-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 15px;
+  }
+}
+
+.med-form {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  mat-form-field { width: 100%; }
+  .form-actions { grid-column: span 3; display: flex; gap: 8px; }
+}

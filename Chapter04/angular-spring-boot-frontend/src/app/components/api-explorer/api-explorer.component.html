@@ -1,0 +1,87 @@
+<div class="explorer card">
+  <div class="section-title">🔬 API Explorer</div>
+  <p class="hint">Click any endpoint to open a request editor.</p>
+
+  <!-- Endpoint groups -->
+  @for (grp of groups; track grp.group) {
+    <div class="group">
+      <div class="group-label">{{ grp.icon }} {{ grp.group }}</div>
+      <div class="endpoint-list">
+        @for (ep of grp.endpoints; track ep.label) {
+          <button class="endpoint-card" (click)="openEndpoint(ep)">
+            <span class="ep-method" [class]="methodColor(ep.method)">{{ ep.method }}</span>
+            <span class="ep-label">{{ ep.label }}</span>
+            <span class="ep-path">{{ ep.path }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ── Request Modal ─────────────────────────────────── -->
+@if (activeEndpoint()) {
+  <div class="modal-overlay" (click)="closeModal()">
+    <div class="modal card" (click)="$event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="modal-title">
+          <span class="ep-method lg" [class]="methodColor(activeEndpoint()!.method)">{{ activeEndpoint()!.method }}</span>
+          <span class="modal-ep-label">{{ activeEndpoint()!.label }}</span>
+        </div>
+        <button class="close-btn" (click)="closeModal()">✕</button>
+      </div>
+
+      <p class="modal-desc">{{ activeEndpoint()!.desc }}</p>
+
+      <!-- Target selector -->
+      <div class="field-row">
+        <label>Target</label>
+        <select [ngModel]="modalTarget()" (ngModelChange)="modalTarget.set($event)"
+                [ngModelOptions]="{standalone:true}" class="select-input">
+          <option value="backend">Backend ({{ baseUrl }})</option>
+          @for (k of microKeys; track k) {
+            <option [value]="k">{{ k }} ({{ microUrls[k] }})</option>
+          }
+        </select>
+      </div>
+
+      <!-- Path -->
+      <div class="field-row">
+        <label>Path</label>
+        <input [ngModel]="modalPath()" (ngModelChange)="modalPath.set($event)"
+               [ngModelOptions]="{standalone:true}"
+               class="path-input" placeholder="/path" />
+      </div>
+
+      <!-- Body (POST/PUT/PATCH only) -->
+      @if (['POST','PUT','PATCH'].includes(activeEndpoint()!.method)) {
+        <div class="field-col">
+          <label>Request Body (JSON)</label>
+          <textarea [ngModel]="modalBody()" (ngModelChange)="modalBody.set($event)"
+                    [ngModelOptions]="{standalone:true}"
+                    class="body-input" rows="6"></textarea>
+        </div>
+      }
+
+      <!-- Send button -->
+      <div class="send-row">
+        <button class="send-btn" (click)="send()" [disabled]="loading()">
+          @if (loading()) { ⏳ Sending… } @else { ▶ Send Request }
+        </button>
+      </div>
+
+      @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+      <!-- Response -->
+      @if (modalResponse()) {
+        <div class="response-section">
+          <span class="status-badge" [class]="statusClass">HTTP {{ modalStatus() }}</span>
+          <pre class="response-box">{{ modalResponse() }}</pre>
+        </div>
+      }
+
+    </div>
+  </div>
+}

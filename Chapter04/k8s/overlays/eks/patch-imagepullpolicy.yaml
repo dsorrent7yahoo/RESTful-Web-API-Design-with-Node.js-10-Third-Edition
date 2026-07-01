@@ -1,0 +1,5 @@
+# JSON 6902 patch — replaces imagePullPolicy on containers[0] for every Deployment.
+# The kustomization.yaml target selector applies this to all Deployments in the namespace.
+- op: replace
+  path: /spec/template/spec/containers/0/imagePullPolicy
+  value: IfNotPresent

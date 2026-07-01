@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patients-encounters
+  namespace: healthcare
+  labels:
+    app: patients-encounters
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patients-encounters
+  template:
+    metadata:
+      labels:
+        app: patients-encounters
+    spec:
+      containers:
+        - name: patients-encounters
+          image: patients-encounters:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4015
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4015
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4015
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patients-encounters
+  namespace: healthcare
+spec:
+  selector:
+    app: patients-encounters
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4015
+      targetPort: 4015
+      nodePort: 30005

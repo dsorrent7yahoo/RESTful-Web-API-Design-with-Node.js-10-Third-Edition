@@ -165,11 +165,19 @@ function chunkTableNames(tableNames, chunkSize) {
   return rows;
 }
 
+// Single gateway entry point — auto-derives the host so no hardcoded IP is needed
+const GATEWAY_ORIGIN = `${window.location.protocol}//${window.location.hostname}:8080`;
+
 const BACKEND_PRESETS = {
-  aws: 'http://3.87.73.29:8080',
-  docker: 'http://localhost:8080',
-  standalone: 'http://localhost:8081'
+  aws:        `${GATEWAY_ORIGIN}/proxy/springboot`,
+  docker:     'http://localhost:8080',
+  standalone: 'http://localhost:8081',
 };
+
+// Landing page: port 5180 locally, root domain on EC2 / production
+const LANDING_URL = window.location.hostname === 'localhost'
+  ? `${window.location.protocol}//localhost:5180`
+  : `${window.location.protocol}//${window.location.hostname}`;
 
 function normalizeBaseUrl(value) {
   return String(value || '').trim().replace(/\/$/, '');
@@ -232,6 +240,8 @@ export default function App() {
     () => getBackendModeLabel(backendMode),
     [backendMode]
   );
+  // Lock buttons to active mode; standalone always allows switching
+  const modeLocked = backendMode !== 'standalone';
 
   function setBackendTarget(mode) {
     const nextUrl = BACKEND_PRESETS[mode] || baseUrl;
@@ -653,7 +663,12 @@ export default function App() {
     <main className="page">
       <section className="hero panel">
         <div>
-          <h1>Spring Boot DynamoDB Medication API Client</h1>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+            <h1>Spring Boot DynamoDB Medication API Client</h1>
+            <a href={LANDING_URL}
+               style={{ fontSize: '13px', color: '#60a5fa', textDecoration: 'none', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '4px 10px', whiteSpace: 'nowrap' }}
+            >🏠 Landing Page</a>
+          </div>
           <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
           <div className="hero-status" aria-live="polite">
             <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
@@ -676,13 +691,13 @@ export default function App() {
         <h2>API Pull Down</h2>
         <form onSubmit={runRequest} className="form">
           <div className="backend-group" role="group" aria-label="Backend target">
-            <button type="button" className={backendMode === 'standalone' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('standalone')}>
+            <button type="button" className={backendMode === 'standalone' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('standalone')} disabled={modeLocked && backendMode !== 'standalone'}>
               Standalone
             </button>
-            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')}>
+            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={modeLocked && backendMode !== 'docker'}>
               Docker
             </button>
-            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')}>
+            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')} disabled={modeLocked && backendMode !== 'aws'}>
               AWS
             </button>
           </div>

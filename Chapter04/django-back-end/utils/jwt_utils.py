@@ -1,3 +1,4 @@
+# Databricks notebook source
 import functools
 from rest_framework.response import Response
 import modules.auth as auth_module
@@ -12,7 +13,7 @@ def jwt_required(fn):
             return Response({"message": "Missing or invalid Authorization header"}, status=401)
         token = auth_header[len("Bearer "):]
         try:
-            user = auth_module.verify_token(token)
+            user = auth_module.verify_access_token(token)
             request.auth_user = user
         except auth_module.ApiError as exc:
             return Response(exc.payload, status=exc.status_code)

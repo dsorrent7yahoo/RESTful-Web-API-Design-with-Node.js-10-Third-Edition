@@ -1,0 +1,154 @@
+# docker-compose.ec2.yml — Full EC2 deployment: landing page + 3 backends + 2 nginx frontends + API Gateway
+#
+# Port map (open all of these in the EC2 security group):
+#   80   — Landing page (React portal with links to each app)
+#   4001 — Flask backend + built-in React frontend (same port, bundled)
+#   3002 — Node.js React frontend  (nginx, static build)
+#   4003 — Node.js backend API     (Express + DynamoDB)
+#   3003 — Django React frontend   (nginx, static build)
+#   4002 — Django backend API      (DRF + DynamoDB)
+#   8080 — API Gateway             (single authenticated entry point)
+#
+# Run:   docker compose -f docker-compose.ec2.yml up -d --build
+# Logs:  docker compose -f docker-compose.ec2.yml logs -f
+# Stop:  docker compose -f docker-compose.ec2.yml down
+
+services:
+
+  # ── API Gateway — single authenticated entry point on :8080 ─────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DJANGO_REACT_URL:  "http://django-frontend"
+      DJANGO_URL:        "http://django-backend:4002"
+      DJANGO_UI_URL:     "http://django-frontend"
+      FLASK_URL:         "http://flask-backend:4001"
+      FLASK_UI_URL:      "http://flask-backend:4001"
+      NODE_URL:          "http://node-backend:4001"
+      NODE_UI_URL:       "http://node-frontend"
+      SPRINGBOOT_URL:    "http://localhost:4004"
+      SPRINGBOOT_UI_URL: "http://localhost:5181"
+      GLUE_URL:          "http://localhost:4010"
+      CLAIMS_URL:        "http://localhost:4011"
+      CLEANER_URL:       "http://localhost:4012"
+      SQS_URL:           "http://localhost:4013"
+      ATHENA_URL:        "http://localhost:4014"
+      PATIENTS_URL:      "http://localhost:4015"
+      GATEWAY_JWT_SECRET:     "${GATEWAY_JWT_SECRET:-gateway-jwt-ec2-secret-change-in-prod}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-admin}"
+      GATEWAY_CUSTOMER_KEYS:  "${GATEWAY_CUSTOMER_KEYS:-{}}"
+    depends_on:
+      - django-backend
+      - flask-backend
+      - node-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+             "require('http').get('http://localhost:8080/health', r => r.statusCode < 500 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Landing page ─────────────────────────────────────────────────────────────
+  landing:
+    build:
+      context: ./landing-page
+    image: healthcare-landing:local
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Flask: backend API + built-in React frontend (both on port 4001) ─────────
+  flask-backend:
+    build:
+      context: .
+      dockerfile: flask-dynamo-db-backend/Dockerfile
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: "4001"
+      AWS_REGION: us-east-1
+      DYNAMODB_TABLE: medications
+      AUTO_CREATE_CSV_TABLES: "true"
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      JWT_EXP_MINUTES: "60"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:4001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── Node.js: React frontend served by nginx on port 3002 ─────────────────────
+  node-frontend:
+    build:
+      context: ./dynamo-db-frontend
+      dockerfile: Dockerfile.nginx
+    ports:
+      - "3002:80"
+    restart: unless-stopped
+
+  # ── Node.js: Express + DynamoDB backend API on port 4003 ─────────────────────
+  node-backend:
+    build:
+      context: .
+      dockerfile: dynamo-db-backend/Dockerfile
+    ports:
+      - "4003:4001"
+    environment:
+      PORT: "4001"
+      AWS_REGION: us-east-1
+      DYNAMODB_TABLE: medications
+      AUTO_CREATE_CSV_TABLES: "true"
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e",
+             "require('http').get('http://localhost:4001/health',r=>process.exit(r.statusCode===200?0:1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+  # ── Django: React frontend served by nginx on port 3003 ──────────────────────
+  django-frontend:
+    build:
+      context: ./django-front-end
+      dockerfile: Dockerfile.nginx
+    ports:
+      - "3003:80"
+    restart: unless-stopped
+
+  # ── Django: DRF + DynamoDB backend API on port 4002 ──────────────────────────
+  django-backend:
+    build:
+      context: ./django-back-end
+      dockerfile: Dockerfile
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: "4002"
+      DJANGO_SETTINGS_MODULE: config.settings
+      AWS_REGION: us-east-1
+      DYNAMODB_TABLE: medications
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      JWT_EXP_MINUTES: "60"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:4002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s

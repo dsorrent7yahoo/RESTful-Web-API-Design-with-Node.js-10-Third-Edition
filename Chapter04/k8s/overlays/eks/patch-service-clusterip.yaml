@@ -1,0 +1,9 @@
+# Change all Services from NodePort to ClusterIP.
+# External traffic enters through the ALB Ingress, not via node ports.
+apiVersion: v1
+kind: Service
+metadata:
+  name: not-used
+  namespace: healthcare
+spec:
+  type: ClusterIP

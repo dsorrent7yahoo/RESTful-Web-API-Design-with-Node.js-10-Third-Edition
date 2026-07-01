@@ -1,0 +1,179 @@
+# Single ALB shared by all 6 microservices via IngressGroup.
+# The AWS Load Balancer Controller merges all Ingress objects in the same
+# group into one ALB — cost-efficient and avoids 6 separate load balancers.
+#
+# After applying, get the ALB DNS name with:
+#   kubectl get ingress -n healthcare
+#
+# Update your React frontend MICROSERVICE_URLS to use the ALB DNS name
+# with path prefixes (e.g., http://<alb-dns>/claims/generate).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-alb
+  namespace: healthcare
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: healthcare-fhir
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "30"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # Subnets must be tagged: kubernetes.io/role/elb=1
+    # alb.ingress.kubernetes.io/subnets: subnet-xxx,subnet-yyy
+spec:
+  rules:
+    - http:
+        paths:
+          # ── Glue Catalog (port 4010) ──────────────────────────────────────
+          - path: /upload
+            pathType: Prefix
+            backend:
+              service:
+                name: glue-catalog
+                port:
+                  number: 4010
+
+          # ── Claims Generator (port 4011) ──────────────────────────────────
+          # /claims/generate and /claims/file(s) — more-specific paths first
+          - path: /claims/generate
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-generator
+                port:
+                  number: 4011
+          - path: /claims/files
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-generator
+                port:
+                  number: 4011
+          - path: /claims/file
+            pathType: Exact
+            backend:
+              service:
+                name: claims-generator
+                port:
+                  number: 4011
+
+          # ── Claims Cleaner (port 4012) ────────────────────────────────────
+          - path: /claims/clean
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-cleaner
+                port:
+                  number: 4012
+          - path: /claims/process-all
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-cleaner
+                port:
+                  number: 4012
+          - path: /claims/parquet-files
+            pathType: Prefix
+            backend:
+              service:
+                name: claims-cleaner
+                port:
+                  number: 4012
+
+          # ── SQS Monitor (port 4013) ───────────────────────────────────────
+          - path: /sqs
+            pathType: Prefix
+            backend:
+              service:
+                name: sqs-monitor
+                port:
+                  number: 4013
+
+          # ── Athena Client (port 4014) ─────────────────────────────────────
+          - path: /athena
+            pathType: Prefix
+            backend:
+              service:
+                name: athena-client
+                port:
+                  number: 4014
+
+          # ── Patients & Encounters (port 4015) ─────────────────────────────
+          - path: /patients
+            pathType: Prefix
+            backend:
+              service:
+                name: patients-encounters
+                port:
+                  number: 4015
+          - path: /encounters
+            pathType: Prefix
+            backend:
+              service:
+                name: patients-encounters
+                port:
+                  number: 4015
+          # ── Flask Backend (port 4001) ─────────────────────────────────────
+          # Unique Flask routes (not handled by the FastAPI microservices above).
+          # /claims, /sqs, /athena, /upload are intentionally omitted here;
+          # those paths are already routed to the dedicated FastAPI services.
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /medications
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /export
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /source
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /tables
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /api-docs
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          - path: /openapi.json
+            pathType: Exact
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001
+          # Catch-all: SPA entry point served by Flask (lowest-priority rule)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: flask-backend
+                port:
+                  number: 4001

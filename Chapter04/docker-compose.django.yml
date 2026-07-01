@@ -1,0 +1,102 @@
+services:
+  # ── API Gateway (single entry point on :8080) ────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+    image: healthcare-api-gateway:local
+    container_name: healthcare-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DJANGO_REACT_URL:  "http://django-frontend"
+      DJANGO_URL:        "http://django-backend:4002"
+      DJANGO_UI_URL:     "http://django-ts-frontend:80"
+      FLASK_URL:         "http://localhost:4001"
+      NODE_URL:          "http://localhost:4003"
+      SPRINGBOOT_URL:    "http://localhost:4004"
+      FLASK_UI_URL:      "http://localhost:4001"
+      NODE_UI_URL:       "http://localhost:3002"
+      SPRINGBOOT_UI_URL: "http://localhost:5181"
+      GLUE_URL:          "http://localhost:4010"
+      CLAIMS_URL:        "http://localhost:4011"
+      CLEANER_URL:       "http://localhost:4012"
+      SQS_URL:           "http://localhost:4013"
+      ATHENA_URL:        "http://localhost:4014"
+      PATIENTS_URL:      "http://localhost:4015"
+      # IAM / Auth
+      GATEWAY_JWT_SECRET:     "${GATEWAY_JWT_SECRET:-gateway-jwt-dev-secret-change-in-prod}"
+      GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-admin}"
+      # Customer API keys: JSON object  { "<key>": { "name": "...", "scopes": ["django","flask"] } }
+      GATEWAY_CUSTOMER_KEYS:  "${GATEWAY_CUSTOMER_KEYS:-{}}"
+    depends_on:
+      - django-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e",
+             "require('http').get('http://localhost:8080/health', r => r.statusCode < 500 ? process.exit(0) : process.exit(1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Django TypeScript Frontend ───────────────────────────────────────────────
+  django-ts-frontend:
+    build:
+      context: ./Django-Fronend-Typescript
+      dockerfile: Dockerfile
+    image: healthcare-django-ts-frontend:local
+    container_name: django-ts-frontend
+    ports:
+      - "3005:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  landing:
+    build:
+      context: ./landing-page
+    image: healthcare-landing:local
+    container_name: healthcare-landing
+    ports:
+      - "5180:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  django-backend:
+    build:
+      context: ./django-back-end
+      dockerfile: Dockerfile
+    image: chapter04-django-backend:local
+    container_name: django-backend
+    ports:
+      - "4002:4002"
+    environment:
+      PORT: "4002"
+      AWS_REGION: "us-east-1"
+      DYNAMODB_TABLE: "medications"
+      JWT_SECRET: "${JWT_SECRET:-health-care-dev-secret}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      SMTP_FROM_EMAIL: "${SMTP_FROM_EMAIL:-}"
+      APPROVER_EMAIL: "${APPROVER_EMAIL:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      AWS_SESSION_TOKEN: "${AWS_SESSION_TOKEN:-}"
+      SOURCE_ROOT: "/source"
+    volumes:
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+      - "./:/source:ro"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4002/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s

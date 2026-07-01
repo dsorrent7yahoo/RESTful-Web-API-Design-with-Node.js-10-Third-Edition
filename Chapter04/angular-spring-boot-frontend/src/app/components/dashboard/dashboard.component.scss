@@ -1,0 +1,63 @@
+.dashboard { display: flex; flex-direction: column; min-height: 100vh; }
+
+.toolbar {
+  position: sticky; top: 0; z-index: 100;
+  background: #161b22 !important;
+  border-bottom: 1px solid #30363d;
+  gap: 12px;
+
+  .logo   { font-size: 1.1rem; font-weight: 700; }
+  .subtitle { font-size: 12px; color: #8b949e; margin-left: 4px; }
+  .spacer  { flex: 1; }
+}
+
+.backend-select { width: 130px; margin-top: 22px; }
+
+.health-pill {
+  font-size: 12px; padding: 4px 10px; border-radius: 12px; font-weight: 600;
+  &.health-ok      { background: #1a4731; color: #3fb950; }
+  &.health-error   { background: #4b1113; color: #f85149; }
+  &.health-loading { background: #1c3550; color: #58a6ff; }
+}
+
+.ms-btn {
+  font-size: 12px;
+  &.active { background: #1a3a1a; border-color: #3fb950; color: #3fb950; }
+}
+
+.content { padding: 16px 16px; }
+
+.ms-health-row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-bottom: 12px; padding: 10px 14px;
+}
+
+.ms-chip {
+  font-size: 12px; padding: 3px 10px; border-radius: 12px; display: flex;
+  align-items: center; gap: 6px; cursor: default;
+  &.ms-ok      { background: #1a4731; color: #3fb950; }
+  &.ms-error   { background: #4b1113; color: #f85149; }
+  &.ms-loading { background: #1c3550; color: #58a6ff; }
+  .ms-port { opacity: 0.7; font-size: 11px; }
+}
+
+.ms-actions {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+  button { font-size: 13px; }
+}
+
+.main-tabs { margin-top: 4px; }
+
+.tab-content { padding: 16px 0; }
+
+.section-header {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 600; color: #7dd3fc; margin-bottom: 12px;
+}
+
+.table-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  .table-chip { cursor: default; }
+}
+
+.muted { color: #8b949e; font-size: 14px; }

@@ -60,8 +60,19 @@ if (openApiSpec.paths
   openApiSpec.paths['/medications/upload'].post.requestBody.content['application/json'].schema.properties.csvPath.example = DEFAULT_CSV_PATH;
 }
 
-const routes = require('./routes/index');
+const routes    = require('./routes/index');
 const medications = require('./routes/medications');
+const authRoutes  = require('./routes/auth');
+const authModule  = require('./modules/auth');
+
+function requireAuth(req, res, next) {
+  try {
+    req.authUser = authModule.verifyToken(req.headers.authorization);
+    next();
+  } catch (err) {
+    res.status(err.status || 401).json({ status: 'error', message: err.message });
+  }
+}
 
 const app = express();
 
@@ -79,7 +90,8 @@ app.use(function(req, res, next) {
 });
 
 app.use('/', routes);
-app.use('/medications', medications);
+app.use('/auth', authRoutes);
+app.use('/medications', requireAuth, medications);
 
 app.get('/launch/frontend', function(req, res) {
   res.redirect(302, 'http://localhost:5174/');

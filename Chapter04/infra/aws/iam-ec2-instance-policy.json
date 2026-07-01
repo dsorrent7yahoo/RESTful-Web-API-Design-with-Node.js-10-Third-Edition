@@ -1,0 +1,141 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBMedications",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Scan",
+        "dynamodb:Query",
+        "dynamodb:BatchGetItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:CreateTable",
+        "dynamodb:ListTables"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:*:table/medications",
+        "arn:aws:dynamodb:us-east-1:*:table/medications/index/*"
+      ]
+    },
+    {
+      "Sid": "S3Export",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:CreateBucket",
+        "s3:GetBucketAcl",
+        "s3:PutBucketAcl"
+      ],
+      "Resource": [
+        "arn:aws:s3:::healthcare-fhir-*",
+        "arn:aws:s3:::healthcare-fhir-*/*"
+      ]
+    },
+    {
+      "Sid": "GlueCatalog",
+      "Effect": "Allow",
+      "Action": [
+        "glue:CreateDatabase",
+        "glue:GetDatabase",
+        "glue:GetDatabases",
+        "glue:CreateTable",
+        "glue:GetTable",
+        "glue:GetTables",
+        "glue:UpdateTable",
+        "glue:DeleteTable",
+        "glue:BatchDeleteTable",
+        "glue:GetPartition",
+        "glue:GetPartitions",
+        "glue:CreatePartition",
+        "glue:BatchCreatePartition"
+      ],
+      "Resource": [
+        "arn:aws:glue:us-east-1:*:catalog",
+        "arn:aws:glue:us-east-1:*:database/*",
+        "arn:aws:glue:us-east-1:*:table/*/*"
+      ]
+    },
+    {
+      "Sid": "AthenaQuery",
+      "Effect": "Allow",
+      "Action": [
+        "athena:StartQueryExecution",
+        "athena:GetQueryExecution",
+        "athena:GetQueryResults",
+        "athena:StopQueryExecution",
+        "athena:ListQueryExecutions",
+        "athena:GetWorkGroup",
+        "athena:ListWorkGroups",
+        "athena:CreateWorkGroup",
+        "athena:ListDataCatalogs",
+        "athena:GetDataCatalog"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "SQSMonitor",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:DeleteQueue",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
+        "sqs:SetQueueAttributes",
+        "sqs:ListQueues",
+        "sqs:PurgeQueue",
+        "sqs:GetQueueUrl",
+        "sqs:ChangeMessageVisibility"
+      ],
+      "Resource": "arn:aws:sqs:us-east-1:*:*"
+    },
+    {
+      "Sid": "AthenaS3Results",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:GetBucketLocation",
+        "s3:ListBucket",
+        "s3:CreateBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::aws-athena-query-results-*",
+        "arn:aws:s3:::aws-athena-query-results-*/*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams",
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:*:log-group:/chapter04/*"
+    },
+    {
+      "Sid": "ECRPull",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
