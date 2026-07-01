@@ -16,8 +16,16 @@ function mountProxies(app) {
   Object.entries(SERVICES).forEach(([key, svc]) => {
     const mountPath = `/proxy/${key}`;
 
-    // Require a valid JWT scoped to this service key
-    app.use(mountPath, requireAuth(key));
+    // Auth endpoints (e.g. /auth/login, /auth/register) are intentionally
+    // public — the backend handles credential validation. All other proxy
+    // routes require a valid gateway JWT scoped to this service.
+    const PUBLIC_PROXY_PATHS = ['/auth/login', '/auth/register', '/auth/token'];
+    app.use(mountPath, (req, res, next) => {
+      if (PUBLIC_PROXY_PATHS.some((p) => req.path === p || req.path.startsWith(p + '/'))) {
+        return next(); // skip gateway JWT check — backend validates credentials
+      }
+      return requireAuth(key)(req, res, next);
+    });
 
     const proxy = createProxyMiddleware({
       target:      svc.target,
