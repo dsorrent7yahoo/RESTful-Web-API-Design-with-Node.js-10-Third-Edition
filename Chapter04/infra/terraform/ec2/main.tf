@@ -143,6 +143,15 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Django TypeScript frontend
+  ingress {
+    description = "Django TypeScript frontend (port 3005)"
+    from_port   = 3005
+    to_port     = 3005
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # Django backend
   ingress {
     description = "Django backend API (port 4002)"

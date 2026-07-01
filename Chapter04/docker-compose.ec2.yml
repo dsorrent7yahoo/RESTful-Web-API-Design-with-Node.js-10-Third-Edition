@@ -25,7 +25,7 @@ services:
       PORT: "8080"
       DJANGO_REACT_URL:  "http://django-frontend"
       DJANGO_URL:        "http://django-backend:4002"
-      DJANGO_UI_URL:     "http://django-frontend"
+      DJANGO_UI_URL:     "http://django-ts-frontend"
       FLASK_URL:         "http://flask-backend:4001"
       FLASK_UI_URL:      "http://flask-backend:4001"
       NODE_URL:          "http://node-backend:4001"
@@ -45,6 +45,7 @@ services:
       - django-backend
       - flask-backend
       - node-backend
+      - django-ts-frontend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e",
@@ -120,6 +121,15 @@ services:
       timeout: 10s
       retries: 5
       start_period: 15s
+
+  # ── Django TypeScript: React/TS frontend served by nginx on port 3005 ─────────
+  django-ts-frontend:
+    build:
+      context: ./Django-Fronend-Typescript
+      dockerfile: Dockerfile
+    ports:
+      - "3005:80"
+    restart: unless-stopped
 
   # ── Django: React frontend served by nginx on port 3003 ──────────────────────
   django-frontend:
