@@ -32,12 +32,12 @@ services:
       NODE_UI_URL:       "http://node-frontend"
       SPRINGBOOT_URL:    "http://localhost:4004"
       SPRINGBOOT_UI_URL: "http://localhost:5181"
-      GLUE_URL:          "http://localhost:4010"
-      CLAIMS_URL:        "http://localhost:4011"
-      CLEANER_URL:       "http://localhost:4012"
-      SQS_URL:           "http://localhost:4013"
-      ATHENA_URL:        "http://localhost:4014"
-      PATIENTS_URL:      "http://localhost:4015"
+      GLUE_URL:          "http://glue-service:4010"
+      CLAIMS_URL:        "http://claims-service:4011"
+      CLEANER_URL:       "http://cleaner-service:4012"
+      SQS_URL:           "http://sqs-monitor:4013"
+      ATHENA_URL:        "http://athena-client:4014"
+      PATIENTS_URL:      "http://patients-service:4015"
       GATEWAY_JWT_SECRET:     "${GATEWAY_JWT_SECRET:-gateway-jwt-ec2-secret-change-in-prod}"
       GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-admin}"
       GATEWAY_CUSTOMER_KEYS:  "${GATEWAY_CUSTOMER_KEYS:-{}}"
@@ -163,3 +163,101 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # ── Microservices ─────────────────────────────────────────────────────────────
+
+  glue-service:
+    build:
+      context: ./microservices/glue_catalog
+    ports:
+      - "4010:4010"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4010/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  claims-service:
+    build:
+      context: ./microservices/claims_generator
+    ports:
+      - "4011:4011"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4011/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  cleaner-service:
+    build:
+      context: ./microservices/claims_cleaner
+    ports:
+      - "4012:4012"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4012/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  sqs-monitor:
+    build:
+      context: ./microservices/sqs_monitor
+    ports:
+      - "4013:4013"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4013/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  athena-client:
+    build:
+      context: ./microservices/athena_client
+    ports:
+      - "4014:4014"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4014/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  patients-service:
+    build:
+      context: ./microservices/patients_encounters
+    ports:
+      - "4015:4015"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4015/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
