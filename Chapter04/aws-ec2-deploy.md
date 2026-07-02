@@ -264,6 +264,47 @@ All egress is open (required for Docker pulls, `apt` updates, AWS SDK calls).
 
 ---
 
+## Starting and Stopping the Instance
+
+Use the AWS CLI to start and stop the instance without destroying it.
+The Elastic IP (`44.210.179.18`) is retained across stop/start cycles.
+
+### Stop
+
+```bash
+aws ec2 stop-instances --instance-ids i-093dbaa9b6e94596e --region us-east-1
+```
+
+### Start
+
+```bash
+aws ec2 start-instances --instance-ids i-093dbaa9b6e94596e --region us-east-1
+```
+
+### Check current state
+
+```bash
+aws ec2 describe-instances \
+  --instance-ids i-093dbaa9b6e94596e \
+  --region us-east-1 \
+  --query 'Reservations[0].Instances[0].State.Name' \
+  --output text
+```
+
+### Restart containers after starting
+
+Docker containers do **not** auto-start on instance boot. After `start-instances` completes,
+SSH in and bring them up:
+
+```bash
+ssh -i ~/.ssh/chapter04-ec2-key.pem ec2-user@44.210.179.18 \
+  'cd ~/app/Chapter04 && docker compose -f docker-compose.ec2.yml up -d'
+```
+
+> Containers are already built — `up -d` (without `--build`) starts them in seconds.
+
+---
+
 ## First-Boot Bootstrap
 
 The EC2 user-data script (`infra/terraform/ec2/userdata.sh.tpl`) runs once on first boot:
