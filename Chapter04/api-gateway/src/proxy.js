@@ -32,24 +32,24 @@ function mountProxies(app) {
       changeOrigin: true,
       // Strip the /proxy/<key> prefix before forwarding
       pathRewrite: { [`^/proxy/${key}`]: '' },
-      on: {
-        error(err, req, res) {
-          const body = JSON.stringify({
-            error:   'Gateway proxy error',
-            service: key,
-            target:  svc.target,
-            detail:  err.message,
-          });
-          if (!res.headersSent) {
-            res.writeHead(502, { 'Content-Type': 'application/json' });
-          }
-          res.end(body);
-        },
-        proxyReq(proxyReq, req) {
-          // Add a tracing header so downstream services know they came through the gateway
-          proxyReq.setHeader('X-Gateway-Service', key);
-          proxyReq.setHeader('X-Gateway-Version', '1.0');
-        },
+      // v2 API: top-level onError / onProxyReq (not nested under `on:`)
+      onError(err, req, res) {
+        const body = JSON.stringify({
+          error:   'Service unavailable',
+          service: key,
+          target:  svc.target,
+          detail:  err.message,
+        });
+        if (res.writableEnded) return;
+        if (!res.headersSent) {
+          res.writeHead(502, { 'Content-Type': 'application/json' });
+        }
+        res.end(body);
+      },
+      onProxyReq(proxyReq) {
+        // Add tracing headers so downstream services know they came through the gateway
+        proxyReq.setHeader('X-Gateway-Service', key);
+        proxyReq.setHeader('X-Gateway-Version', '1.0');
       },
     });
 
