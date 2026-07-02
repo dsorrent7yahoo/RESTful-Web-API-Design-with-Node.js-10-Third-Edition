@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 core/views.py
 Health check, DynamoDB table listing, OpenAPI spec, and Swagger UI.
@@ -8,7 +9,7 @@ import os
 from pathlib import Path
 
 from django.http import HttpResponse
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes
 from rest_framework.response import Response
 
 from utils.jwt_utils import jwt_required
@@ -28,6 +29,7 @@ def _load_openapi():
 
 
 @api_view(["GET"])
+@throttle_classes([])
 def health(request):
     return Response({"status": "ok"})
 
