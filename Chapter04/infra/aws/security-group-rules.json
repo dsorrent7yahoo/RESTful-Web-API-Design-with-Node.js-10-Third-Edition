@@ -46,6 +46,13 @@
       "CidrIpv4": "0.0.0.0/0"
     },
     {
+      "Description": "Django TypeScript frontend (nginx)",
+      "IpProtocol": "tcp",
+      "FromPort": 3005,
+      "ToPort": 3005,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
       "Description": "Django backend API",
       "IpProtocol": "tcp",
       "FromPort": 4002,

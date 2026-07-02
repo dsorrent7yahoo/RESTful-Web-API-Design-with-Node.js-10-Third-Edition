@@ -159,7 +159,7 @@ services:
     healthcheck:
       test: ["CMD", "python3", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:4002/health')"]
-      interval: 30s
+      interval: 60s
       timeout: 10s
-      retries: 5
-      start_period: 20s
+      retries: 3
+      start_period: 30s
