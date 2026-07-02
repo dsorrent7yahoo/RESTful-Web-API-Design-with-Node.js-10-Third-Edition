@@ -293,15 +293,17 @@ aws ec2 describe-instances \
 
 ### Restart containers after starting
 
-Docker containers do **not** auto-start on instance boot. After `start-instances` completes,
-SSH in and bring them up:
+The `healthcare-stack` systemd service is enabled on this instance — containers **start automatically**
+on every boot. No manual step needed after `start-instances`.
+
+To start them manually (e.g. after a fresh `terraform apply`):
 
 ```bash
 ssh -i ~/.ssh/chapter04-ec2-key.pem ec2-user@44.210.179.18 \
   'cd ~/app/Chapter04 && docker compose -f docker-compose.ec2.yml up -d'
 ```
 
-> Containers are already built — `up -d` (without `--build`) starts them in seconds.
+> Containers are already built — `up -d` (without `--build`) starts in seconds.
 
 ---
 
