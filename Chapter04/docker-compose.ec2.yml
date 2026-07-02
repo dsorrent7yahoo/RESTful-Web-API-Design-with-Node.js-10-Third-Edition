@@ -41,6 +41,7 @@ services:
       GATEWAY_JWT_SECRET:     "${GATEWAY_JWT_SECRET:-gateway-jwt-ec2-secret-change-in-prod}"
       GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-admin}"
       GATEWAY_CUSTOMER_KEYS:  "${GATEWAY_CUSTOMER_KEYS:-{}}"
+      JWT_SECRET:             "${JWT_SECRET:-healthcare-ec2-dev-secret}"
     depends_on:
       - django-backend
       - flask-backend

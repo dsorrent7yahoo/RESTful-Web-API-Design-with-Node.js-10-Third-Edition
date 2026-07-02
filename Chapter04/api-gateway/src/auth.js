@@ -16,8 +16,10 @@
 
 const jwt = require('jsonwebtoken');
 
-const SECRET   = process.env.GATEWAY_JWT_SECRET      || 'gateway-jwt-dev-secret-change-in-prod';
-const ADMIN_PW = process.env.GATEWAY_ADMIN_PASSWORD  || 'admin';
+const SECRET          = process.env.GATEWAY_JWT_SECRET || 'gateway-jwt-dev-secret-change-in-prod';
+const ADMIN_PW        = process.env.GATEWAY_ADMIN_PASSWORD || 'admin';
+// Shared backend secret — also accepted for proxy access (users who authenticated directly to a backend)
+const BACKEND_SECRET  = process.env.JWT_SECRET || 'healthcare-ec2-dev-secret';
 
 // ---------------------------------------------------------------------------
 // Customer key store
@@ -40,8 +42,17 @@ function createToken(payload, expiresIn = '8h') {
 }
 
 function verifyToken(token) {
+  // 1. Try the gateway's own JWT secret (admin / customer tokens)
   try {
     return jwt.verify(token, SECRET);
+  } catch { /* fall through */ }
+
+  // 2. Try the shared backend secret — users who authenticated directly to a
+  //    backend (Django, Flask, Node) can use that token for proxy access too.
+  //    Treat them as customer-scoped (full service access for the demo).
+  try {
+    const p = jwt.verify(token, BACKEND_SECRET);
+    return { ...p, role: 'customer', sub: p.sub || p.email || 'backend-user', scopes: [] };
   } catch {
     return null;
   }
