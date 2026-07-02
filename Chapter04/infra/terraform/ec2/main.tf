@@ -170,6 +170,15 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Microservices (ports 4010-4015)
+  ingress {
+    description = "Microservices glue/claims/cleaner/sqs/athena/patients (4010-4015)"
+    from_port   = 4010
+    to_port     = 4015
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     description = "All outbound"
     from_port   = 0
