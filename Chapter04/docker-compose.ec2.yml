@@ -190,6 +190,10 @@ services:
     environment:
       AWS_REGION: us-east-1
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4011/health')"]
@@ -206,6 +210,10 @@ services:
     environment:
       AWS_REGION: us-east-1
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4012/health')"]
@@ -254,6 +262,10 @@ services:
     environment:
       AWS_REGION: us-east-1
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4015/health')"]
