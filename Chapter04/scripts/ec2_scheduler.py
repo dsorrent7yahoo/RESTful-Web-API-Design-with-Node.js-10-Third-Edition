@@ -110,6 +110,19 @@ def _instance_state() -> str:
     return resp["Reservations"][0]["Instances"][0]["State"]["Name"]
 
 
+def _wait_for_state(target: str, timeout: int = 180):
+    """Poll every 10 s until the instance reaches *target* or timeout expires."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        state = _instance_state()
+        if state == target:
+            return True
+        log.info("  ... still %s — waiting for '%s'", state, target)
+        time.sleep(10)
+    log.warning("Timed out after %ds waiting for state '%s'.", timeout, target)
+    return False
+
+
 def start_instance():
     state = _instance_state()
     if state == "running":
@@ -119,7 +132,11 @@ def start_instance():
         log.warning("START skipped — unexpected state: %s", state)
         return
     _ec2().start_instances(InstanceIds=[INSTANCE_ID])
-    log.info("✅  STARTED  (was: %s)", state)
+    log.info("START issued — waiting for EC2 to reach 'running'...")
+    if _wait_for_state("running"):
+        log.info("✅  EC2 is now RUNNING.")
+    else:
+        log.error("❌  EC2 did not reach 'running' within the timeout.")
 
 
 def stop_instance():
@@ -131,7 +148,11 @@ def stop_instance():
         log.warning("STOP skipped — unexpected state: %s", state)
         return
     _ec2().stop_instances(InstanceIds=[INSTANCE_ID])
-    log.info("🛑  STOPPED  (was: %s)", state)
+    log.info("STOP issued — waiting for EC2 to reach 'stopped'...")
+    if _wait_for_state("stopped"):
+        log.info("🛑  EC2 is now STOPPED.")
+    else:
+        log.error("❌  EC2 did not reach 'stopped' within the timeout.")
 
 # ── Schedule ──────────────────────────────────────────────────────────────────
 
