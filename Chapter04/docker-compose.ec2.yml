@@ -1,4 +1,4 @@
-# docker-compose.ec2.yml — Full EC2 deployment: landing page + 3 backends + 2 nginx frontends + API Gateway
+# docker-compose.ec2.yml — Full EC2 deployment: landing page + 3 backends + 2 nginx frontends + API Gateway + RAG stack
 #
 # Port map (open all of these in the EC2 security group):
 #   80   — Landing page (React portal with links to each app)
@@ -8,6 +8,13 @@
 #   3003 — Django React frontend   (nginx, static build)
 #   4002 — Django backend API      (DRF + DynamoDB)
 #   8080 — API Gateway             (single authenticated entry point)
+#   5000 — Healthcare RAG (Preact SPA + 5 FastAPI services in one image)
+#           /             → Preact RAG UI
+#           /health       → RAG core health
+#           /api/pharmacist/* → Pharmacist Review API (:4006 internal)
+#           /api/ehr/*    → EHR Query API (:4007 internal)
+#           /api/diagnosis/* → Diagnosis Support API (:4008 internal)
+#           /api/*        → Config/Doc Browser API (:4009 internal)
 #
 # Run:   docker compose -f docker-compose.ec2.yml up -d --build
 # Logs:  docker compose -f docker-compose.ec2.yml logs -f
@@ -25,26 +32,28 @@ services:
       PORT: "8080"
       DJANGO_REACT_URL:  "http://django-frontend"
       DJANGO_URL:        "http://django-backend:4002"
-      DJANGO_UI_URL:     "http://django-frontend"
+      DJANGO_UI_URL:     "http://django-ts-frontend"
       FLASK_URL:         "http://flask-backend:4001"
       FLASK_UI_URL:      "http://flask-backend:4001"
       NODE_URL:          "http://node-backend:4001"
       NODE_UI_URL:       "http://node-frontend"
       SPRINGBOOT_URL:    "http://localhost:4004"
       SPRINGBOOT_UI_URL: "http://localhost:5181"
-      GLUE_URL:          "http://localhost:4010"
-      CLAIMS_URL:        "http://localhost:4011"
-      CLEANER_URL:       "http://localhost:4012"
-      SQS_URL:           "http://localhost:4013"
-      ATHENA_URL:        "http://localhost:4014"
-      PATIENTS_URL:      "http://localhost:4015"
+      GLUE_URL:          "http://glue-service:4010"
+      CLAIMS_URL:        "http://claims-service:4011"
+      CLEANER_URL:       "http://cleaner-service:4012"
+      SQS_URL:           "http://sqs-monitor:4013"
+      ATHENA_URL:        "http://athena-client:4014"
+      PATIENTS_URL:      "http://patients-service:4015"
       GATEWAY_JWT_SECRET:     "${GATEWAY_JWT_SECRET:-gateway-jwt-ec2-secret-change-in-prod}"
       GATEWAY_ADMIN_PASSWORD: "${GATEWAY_ADMIN_PASSWORD:-admin}"
       GATEWAY_CUSTOMER_KEYS:  "${GATEWAY_CUSTOMER_KEYS:-{}}"
+      JWT_SECRET:             "${JWT_SECRET:-healthcare-ec2-dev-secret}"
     depends_on:
       - django-backend
       - flask-backend
       - node-backend
+      - django-ts-frontend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e",
@@ -121,6 +130,15 @@ services:
       retries: 5
       start_period: 15s
 
+  # ── Django TypeScript: React/TS frontend served by nginx on port 3005 ─────────
+  django-ts-frontend:
+    build:
+      context: ./Django-Fronend-Typescript
+      dockerfile: Dockerfile
+    ports:
+      - "3005:80"
+    restart: unless-stopped
+
   # ── Django: React frontend served by nginx on port 3003 ──────────────────────
   django-frontend:
     build:
@@ -148,7 +166,152 @@ services:
     healthcheck:
       test: ["CMD", "python3", "-c",
              "import urllib.request; urllib.request.urlopen('http://localhost:4002/health')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ── Microservices ─────────────────────────────────────────────────────────────
+
+  glue-service:
+    build:
+      context: ./microservices/glue_catalog
+    ports:
+      - "4010:4010"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4010/health')"]
       interval: 30s
       timeout: 10s
-      retries: 5
+      retries: 3
       start_period: 20s
+
+  claims-service:
+    build:
+      context: ./microservices/claims_generator
+    ports:
+      - "4011:4011"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4011/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  cleaner-service:
+    build:
+      context: ./microservices/claims_cleaner
+    ports:
+      - "4012:4012"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4012/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  sqs-monitor:
+    build:
+      context: ./microservices/sqs_monitor
+    ports:
+      - "4013:4013"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4013/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  athena-client:
+    build:
+      context: ./microservices/athena_client
+    ports:
+      - "4014:4014"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4014/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  patients-service:
+    build:
+      context: ./microservices/patients_encounters
+    ports:
+      - "4015:4015"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+      LAMBDA_DIR: /app/lambdas
+    volumes:
+      - /home/ec2-user/app/Chapter04/django-back-end/lambdas:/app/lambdas:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4015/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Healthcare RAG — combined image: Preact SPA + 5 FastAPI services on port 5000 ──
+  # Replaces the previous individual rag-api / pharmacist-review / ehr-query /
+  # diagnosis-support containers.  All services run inside one container managed
+  # by supervisord; nginx reverse-proxies /api/* to the correct uvicorn process.
+  healthcare-rag:
+    build:
+      context: .
+      dockerfile: Dockerfile.rag
+    image: healthcare-rag:latest
+    ports:
+      - "5000:80"
+    environment:
+      RAG_EMBED_BACKEND: clinicalbert
+      RAG_CLINICALBERT_MODEL: pritamdeka/S-PubMedBert-MS-MARCO
+      RAG_VECTOR_BACKEND: memory
+      RAG_MEMORY_STORE_PATH: /tmp/rag-memory-store.pkl
+      RAG_LLM_BACKEND: openai
+      RAG_TOP_K: "5"
+      RAG_ALPHA: "0.6"
+      RAG_CHUNK_SIZE: "400"
+      RAG_CHUNK_OVERLAP: "50"
+      AWS_REGION: us-east-1
+      DYNAMODB_TABLE: medications
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      UMLS_API_KEY: ${UMLS_API_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python3", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
