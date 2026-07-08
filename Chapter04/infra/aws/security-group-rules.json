@@ -1,0 +1,79 @@
+{
+  "GroupName": "chapter04-ec2-sg",
+  "Description": "Healthcare demo EC2 — web ports + SSH + API Gateway",
+  "VpcId": "<your-vpc-id>",
+  "IngressRules": [
+    {
+      "Description": "SSH — restrict to your IP in production",
+      "IpProtocol": "tcp",
+      "FromPort": 22,
+      "ToPort": 22,
+      "CidrIpv4": "YOUR_IP/32"
+    },
+    {
+      "Description": "Landing page (nginx)",
+      "IpProtocol": "tcp",
+      "FromPort": 80,
+      "ToPort": 80,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Flask backend + React frontend (bundled)",
+      "IpProtocol": "tcp",
+      "FromPort": 4001,
+      "ToPort": 4001,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Node.js React frontend (nginx)",
+      "IpProtocol": "tcp",
+      "FromPort": 3002,
+      "ToPort": 3002,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Node.js backend API",
+      "IpProtocol": "tcp",
+      "FromPort": 4003,
+      "ToPort": 4003,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Django React frontend (nginx)",
+      "IpProtocol": "tcp",
+      "FromPort": 3003,
+      "ToPort": 3003,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Django TypeScript frontend (nginx)",
+      "IpProtocol": "tcp",
+      "FromPort": 3005,
+      "ToPort": 3005,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "Django backend API",
+      "IpProtocol": "tcp",
+      "FromPort": 4002,
+      "ToPort": 4002,
+      "CidrIpv4": "0.0.0.0/0"
+    },
+    {
+      "Description": "API Gateway — single authenticated entry point",
+      "IpProtocol": "tcp",
+      "FromPort": 8080,
+      "ToPort": 8080,
+      "CidrIpv4": "0.0.0.0/0"
+    }
+  ],
+  "EgressRules": [
+    {
+      "Description": "All outbound traffic",
+      "IpProtocol": "-1",
+      "FromPort": -1,
+      "ToPort": -1,
+      "CidrIpv4": "0.0.0.0/0"
+    }
+  ]
+}
