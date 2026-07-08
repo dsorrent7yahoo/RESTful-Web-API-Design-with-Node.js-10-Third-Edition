@@ -102,6 +102,12 @@ export function DiagnosisSupport() {
       {fullRes && (
         <div class="result-box">
           <div class="result-meta"><span class="badge">{fullRes.sources_count} sources</span><span class="badge">{fullRes.latency_ms} ms</span></div>
+          {fullRes.sources && fullRes.sources.length > 0 && (
+            <div class="result-sources">
+              <span class="sources-label">Sources:</span>
+              {fullRes.sources.map((s, i) => <span key={i} class="source-tag">{s}</span>)}
+            </div>
+          )}
           <div class="result-content">{fullRes.full_report.split('\n').map((l,i)=>l.trim()?<p key={i}>{l}</p>:<br key={i} />)}</div>
         </div>
       )}

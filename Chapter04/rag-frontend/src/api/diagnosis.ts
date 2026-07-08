@@ -34,6 +34,7 @@ export interface DiagnosisResponse {
   recommended_workup: string;
   full_report: string;
   sources_count: number;
+  sources?: string[];
   latency_ms: number;
 }
 

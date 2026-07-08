@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 diagnosis_support.py — Evidence-Based Diagnosis Support API.
 
@@ -96,6 +97,7 @@ class DiagnosisResponse(BaseModel):
     recommended_workup: str
     full_report: str
     sources_count: int
+    sources: list[str]
     latency_ms: int
 
 # ── Helper ──────────────────────────────────────────────────────────────────
@@ -171,6 +173,7 @@ def evaluate_patient(body: PatientContext) -> DiagnosisResponse:
         recommended_workup="",
         full_report=answer,
         sources_count=len(data.get("sources", [])),
+        sources=[s.get("source", s.get("id", "")) for s in data.get("sources", [])],
         latency_ms=data.get("latency_ms", 0),
     )
 
@@ -194,6 +197,7 @@ def evaluate_by_patient_id(patient_id: str, top_k: int = 5) -> DiagnosisResponse
         icd_code=None, differential=[], guideline_support="",
         recommended_workup="", full_report=answer,
         sources_count=len(data.get("sources", [])),
+        sources=[s.get("source", s.get("id", "")) for s in data.get("sources", [])],
         latency_ms=data.get("latency_ms", 0),
     )
 
@@ -230,6 +234,8 @@ def interpret_lab(body: LabInterpretationRequest) -> dict:
     return {"lab_name": body.lab_name, "value": body.value,
             "loinc_code": body.loinc_code, "interpretation": data.get("answer", ""),
             "sources_count": len(data.get("sources", [])),
+            "sources": [s.get("source", s.get("id", "")) for s in data.get("sources", [])],
+            "sources": [s.get("source", s.get("id", "")) for s in data.get("sources", [])],
             "latency_ms": data.get("latency_ms", 0)}
 
 
