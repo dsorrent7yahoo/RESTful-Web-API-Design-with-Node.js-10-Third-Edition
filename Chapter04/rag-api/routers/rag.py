@@ -83,7 +83,7 @@ def _get_pipeline():
     global _embedder, _store, _pipeline
     if _pipeline is None:
         _embedder = Embedder(settings.rag_embed_backend)
-        _store = VectorStore(settings.rag_vector_backend, settings.rag_opensearch_index)
+        _store = VectorStore(settings.rag_vector_backend, "healthcare-rag")
         _pipeline = RAGPipeline(_embedder, HybridRetriever(_embedder, _store, settings.rag_alpha),
                                 Generator(settings.rag_llm_backend))
     return _pipeline

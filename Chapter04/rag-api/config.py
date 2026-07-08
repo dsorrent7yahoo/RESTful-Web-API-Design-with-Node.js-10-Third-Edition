@@ -26,7 +26,6 @@ RAG_EMBED_BACKEND    Which embedding model to use.
 
 RAG_VECTOR_BACKEND   Where to store document vectors.
                        memory        — in-process numpy array + pickle file (default)
-                       opensearch    — AWS OpenSearch for production scale
                        pgvector      — PostgreSQL + pgvector extension
 
 RAG_LLM_BACKEND      Which language model generates answers.
@@ -60,8 +59,6 @@ class Settings(BaseSettings):
     rag_embed_backend: str = "clinicalbert"
     rag_clinicalbert_model: str = "pritamdeka/S-PubMedBert-MS-MARCO"
     rag_vector_backend: str = "memory"
-    rag_opensearch_url: Optional[str] = None
-    rag_opensearch_index: str = "healthcare-rag"
     rag_pg_dsn: Optional[str] = None
     rag_memory_store_path: str = "/tmp/rag-memory-store.pkl"
     rag_llm_backend: str = "openai"

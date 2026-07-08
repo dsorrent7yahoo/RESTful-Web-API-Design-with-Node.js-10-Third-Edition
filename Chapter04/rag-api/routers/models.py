@@ -134,7 +134,7 @@ def _get_or_build_pipeline(name: str) -> RAGPipeline:
     if name not in _pipeline_cache:
         cfg = _models[name]
         embedder = Embedder(cfg["embed_backend"])
-        store    = VectorStore(settings.rag_vector_backend, settings.rag_opensearch_index)
+        store    = VectorStore(settings.rag_vector_backend, "healthcare-rag")
         retriever = HybridRetriever(embedder, store, cfg["alpha"])
         generator = Generator(cfg["llm_backend"])
         _pipeline_cache[name] = RAGPipeline(embedder, retriever, generator)
@@ -142,7 +142,7 @@ def _get_or_build_pipeline(name: str) -> RAGPipeline:
 
 def _doc_count(shard):
     try:
-        store = VectorStore(settings.rag_vector_backend, settings.rag_opensearch_index)
+        store = VectorStore(settings.rag_vector_backend, "healthcare-rag")
         raw = store.stats()
         return raw.get("shards", {}).get(shard, {}).get("doc_count", 0) if shard else raw.get("total_docs", 0)
     except Exception:

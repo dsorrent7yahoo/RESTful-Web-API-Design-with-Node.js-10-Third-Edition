@@ -8,7 +8,6 @@ must be stored somewhere so they can be searched quickly at query time.
 
 This module provides a unified VectorStore interface with multiple backends.
 The "memory" backend is fully functional for development and single-node production;
-the "opensearch" backend scales to millions of documents.
 
 WHAT IS COSINE SIMILARITY SEARCH?
 -----------------------------------
@@ -37,9 +36,6 @@ memory      In-process numpy array + pickle file on disk.
             Up to ~100k documents on a t3.medium EC2 instance.
             Pickle file survives server restarts.
 
-opensearch  AWS OpenSearch Serverless or self-managed cluster.
-            True ANN search with NMSLIB/Faiss.  Recommended for production
-            with >100k documents.
 
 pgvector    PostgreSQL + pgvector extension.
             SQL-compatible vector search.  Good for existing Postgres setups.
@@ -87,14 +83,11 @@ class VectorStore:
             self._docs = []
             self._bm25_index = None
             self._load_from_disk()
-        elif backend == "opensearch":
-            self._os_client = self._build_os_client()
-        else:
-            raise ValueError(f"Unknown backend: {backend!r}")
+        elif backend != "memory":
+            raise ValueError(f"Unknown backend: {backend!r}. Only 'memory' is supported.")
 
     def create_index(self, dimension, shards=1):
-        if self.backend == "opensearch":
-            self._os_create_index(dimension, shards)
+        pass  # memory backend needs no index setup
 
     def delete_index(self, shard=None):
         with self._lock:
@@ -110,13 +103,11 @@ class VectorStore:
         if not documents: return 0
         with self._lock:
             if self.backend == "memory": return self._mem_upsert(documents)
-            if self.backend == "opensearch": return self._os_upsert(documents)
         return 0
 
     def search(self, query_vector, top_k=10, shard_filter=None):
         with self._lock:
             if self.backend == "memory": return self._mem_search(query_vector, top_k, shard_filter)
-            if self.backend == "opensearch": return self._os_search(query_vector, top_k, shard_filter)
         return []
 
     def bm25_search(self, query_text, top_k=10, shard_filter=None):
@@ -193,30 +184,3 @@ class VectorStore:
             except Exception as e:
                 logger.warning("Cannot load store: %s", e); self._docs = []
 
-    def _build_os_client(self):
-        from opensearchpy import OpenSearch
-        return OpenSearch(os.getenv("RAG_OPENSEARCH_URL","http://localhost:9200"))
-
-    def _os_create_index(self, dimension, shards):
-        body = {"settings":{"index":{"number_of_shards":shards}},
-                "mappings":{"properties":{"vector":{"type":"knn_vector","dimension":dimension},
-                                           "text":{"type":"text"},"source":{"type":"keyword"},
-                                           "shard":{"type":"keyword"}}}}
-        self._os_client.indices.create(index=self.index_name, body=body, ignore=400)
-
-    def _os_upsert(self, documents):
-        from opensearchpy.helpers import bulk
-        actions = [{"_op_type":"index","_index":self.index_name,"_id":d["id"],
-                    "_source":{"vector":d["vector"],"text":d.get("text",""),
-                               "source":d.get("source",""),"shard":d.get("shard","default")}}
-                   for d in documents]
-        ok, _ = bulk(self._os_client, actions)
-        return ok
-
-    def _os_search(self, query_vector, top_k, shard_filter):
-        query = {"size":top_k,"query":{"knn":{"vector":{"vector":query_vector,"k":top_k}}}}
-        if shard_filter: query["post_filter"] = {"term":{"shard":shard_filter}}
-        resp = self._os_client.search(index=self.index_name, body=query)
-        return [{"id":h["_id"],"score":h["_score"],"text":h["_source"].get("text",""),
-                 "source":h["_source"].get("source",""),"metadata":h["_source"].get("metadata",{})}
-                for h in resp["hits"]["hits"]]
