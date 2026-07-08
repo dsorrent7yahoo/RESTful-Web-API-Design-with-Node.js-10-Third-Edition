@@ -297,14 +297,16 @@ services:
       RAG_CLINICALBERT_MODEL: pritamdeka/S-PubMedBert-MS-MARCO
       RAG_VECTOR_BACKEND: memory
       RAG_MEMORY_STORE_PATH: /tmp/rag-memory-store.pkl
-      RAG_LLM_BACKEND: openai
+      RAG_LLM_BACKEND: bedrock
       RAG_TOP_K: "5"
       RAG_ALPHA: "0.6"
       RAG_CHUNK_SIZE: "400"
       RAG_CHUNK_OVERLAP: "50"
+      CORS_ORIGINS: '["http://44.210.179.18","http://44.210.179.18:5000","http://sorrentino-aws-demos.click","http://sorrentino-aws-demos.click:5000","http://localhost:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176","http://localhost:5177","http://localhost:5178","http://localhost:8080"]'
       AWS_REGION: us-east-1
       DYNAMODB_TABLE: medications
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      RAG_JWT: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJyYWctZGVtbyIsInJvbGUiOiJ1c2VyIiwiZXhwIjoyMDk4ODI4MzExfQ.0Vr--ftCfuspib9JftSppw5ue8DfTwJ17oK9-kKi6Xk"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       UMLS_API_KEY: ${UMLS_API_KEY:-}
     restart: unless-stopped

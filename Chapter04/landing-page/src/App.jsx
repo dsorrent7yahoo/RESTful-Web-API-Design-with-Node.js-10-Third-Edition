@@ -6,6 +6,28 @@ const HOST = window.location.hostname;
 
 const APPS = [
   {
+    id: 'rag',
+    name: 'Clinical Decision Support (RAG)',
+    stack: 'Python · FastAPI · ClinicalBERT · AWS Bedrock Claude Sonnet 4.6',
+    icon: '🧠',
+    gradient: 'linear-gradient(135deg, #7c3aed, #4c1d95)',
+    accentColor: '#a78bfa',
+    frontendUrl: `http://${HOST}:5000`,
+    apiUrl: `http://${HOST}:5000`,
+    healthPath: '/health',
+    description:
+      'RAG-powered clinical decision support — FDA drug labels indexed with ClinicalBERT, queried via AWS Bedrock Claude Sonnet 4.6. Covers pharmacist DRP review, natural-language EHR querying, and evidence-based diagnosis support.',
+    features: [
+      'RAG: Pharmacist DRP Review',
+      'RAG: EHR Natural Language Query',
+      'RAG: Diagnosis Support',
+      'ClinicalBERT Embeddings',
+      'AWS Bedrock Claude Sonnet 4.6',
+      '1,036 Indexed FDA Documents',
+    ],
+    portNote: `Combined image (nginx + 5 FastAPI services) on port 5000`,
+  },
+  {
     id: 'django-ts',
     name: 'Django TypeScript',
     stack: 'TypeScript · React 18 · Django REST Framework · DynamoDB',
@@ -200,8 +222,109 @@ function AppCard({ app }) {
   );
 }
 
+// ── Login gate ───────────────────────────────────────────────────────────────
+const GW = `http://${HOST}:8080`;
+const TOKEN_KEY = 'healthcare_gw_token';
+
+function LoginGate({ onLogin }) {
+  const [user, setUser]   = useState('admin');
+  const [pass, setPass]   = useState('');
+  const [err,  setErr]    = useState('');
+  const [busy, setBusy]   = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setBusy(true); setErr('');
+    try {
+      const res = await fetch(`${GW}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.token) throw new Error(data.message || data.detail || 'Login failed');
+      sessionStorage.setItem(TOKEN_KEY, data.token);
+      onLogin(data.token, data.user);
+    } catch (ex) {
+      setErr(ex.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+    }}>
+      <div style={{
+        background: '#1e293b', border: '1px solid #334155', borderRadius: 16,
+        padding: '2.5rem 2rem', width: '100%', maxWidth: 380, boxShadow: '0 25px 50px rgba(0,0,0,.5)',
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>🏥</div>
+          <h1 style={{ color: '#f1f5f9', fontSize: '1.4rem', margin: 0 }}>Healthcare API Demo</h1>
+          <p style={{ color: '#64748b', fontSize: '.875rem', marginTop: 4 }}>Sign in to continue</p>
+        </div>
+
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: 4 }}>Username</label>
+            <input
+              value={user} onChange={e => setUser(e.target.value)} required autoFocus
+              style={{
+                width: '100%', padding: '0.6rem 0.75rem', background: '#0f172a',
+                border: '1px solid #475569', borderRadius: 8, color: '#f1f5f9',
+                fontSize: '0.95rem', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div>
+            <label style={{ color: '#94a3b8', fontSize: '.8rem', display: 'block', marginBottom: 4 }}>Password</label>
+            <input
+              type="password" value={pass} onChange={e => setPass(e.target.value)} required
+              placeholder="••••••••"
+              style={{
+                width: '100%', padding: '0.6rem 0.75rem', background: '#0f172a',
+                border: '1px solid #475569', borderRadius: 8, color: '#f1f5f9',
+                fontSize: '0.95rem', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          {err && <p style={{ color: '#ef4444', fontSize: '.85rem', margin: 0 }}>⚠ {err}</p>}
+
+          <button
+            type="submit" disabled={busy}
+            style={{
+              marginTop: 8, padding: '0.7rem', borderRadius: 8, border: 'none', cursor: 'pointer',
+              background: busy ? '#334155' : 'linear-gradient(135deg, #6366f1, #4338ca)',
+              color: '#fff', fontSize: '1rem', fontWeight: 600,
+            }}
+          >
+            {busy ? 'Signing in…' : 'Sign In →'}
+          </button>
+        </form>
+
+        <p style={{ color: '#475569', fontSize: '.75rem', textAlign: 'center', marginTop: '1.5rem' }}>
+          Default: admin / admin
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY));
+  const [authUser, setAuthUser] = useState(null);
+
+  if (!token) {
+    return <LoginGate onLogin={(t, u) => { setToken(t); setAuthUser(u); }} />;
+  }
+
+  const logout = () => { sessionStorage.removeItem(TOKEN_KEY); setToken(null); };
+
   return (
     <div className="landing">
       {/* Header */}
@@ -212,6 +335,22 @@ export default function App() {
             <div>
               <h1>Healthcare API Demo</h1>
             </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {authUser && (
+              <span style={{ color: '#94a3b8', fontSize: '.85rem' }}>
+                👤 {authUser.username ?? authUser}
+              </span>
+            )}
+            <button
+              onClick={logout}
+              style={{
+                padding: '0.4rem 1rem', borderRadius: 8, border: '1px solid #475569',
+                background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '.85rem',
+              }}
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </header>
@@ -266,7 +405,7 @@ export default function App() {
       </main>
 
       <footer className="footer">
-        <p>RESTful Web API Design with Node.js 10 · Chapter 04 · Powered by AWS DynamoDB</p>
+        <p>RESTful Web API Design with Node.js 10 · Chapter 04 · Powered by AWS DynamoDB &amp; RAG</p>
         <p className="footer-host">
           EC2 host: <code>{HOST}</code>
         </p>
