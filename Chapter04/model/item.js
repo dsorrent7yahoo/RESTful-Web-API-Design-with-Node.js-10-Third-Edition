@@ -33,7 +33,7 @@ var itemSchema = new Schema ({
     "categories": [String]
 });
 
-var CatalogItem = mongoose.model('Item', itemSchema);
+var CatalogItem = mongoose.models.Item || mongoose.model('Item', itemSchema);
 
 module.exports = {
     CatalogItem : CatalogItem,
