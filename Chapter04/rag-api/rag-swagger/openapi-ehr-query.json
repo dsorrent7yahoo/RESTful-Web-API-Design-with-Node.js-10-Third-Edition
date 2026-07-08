@@ -1,0 +1,265 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EHR Natural Language Query API",
+    "description": "## Query Electronic Health Records in Plain English\n\nTranslates natural-language questions into DynamoDB PartiQL SELECT statements.\nClinical staff who don't know DynamoDB syntax can ask questions like\n*'Which patients were prescribed Warfarin after 2015?'* and receive a\nvalid, runnable query.\n\n**Powered by:** RAG API (port 4005) \u00b7 Claude Sonnet 4.6 \u00b7 medications corpus\n\n**Research basis:** CBR-to-SQL arXiv:2603.05569",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Service health check",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ehr/tables": {
+      "get": {
+        "tags": [
+          "Schema"
+        ],
+        "summary": "List queryable DynamoDB tables",
+        "description": "Returns the DynamoDB table names available for PartiQL queries.",
+        "operationId": "list_tables_ehr_tables_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ehr/query": {
+      "post": {
+        "tags": [
+          "NL Query"
+        ],
+        "summary": "Translate natural language to PartiQL",
+        "description": "Converts a plain-English question about EHR data into a valid\nDynamoDB PartiQL SELECT statement using few-shot RAG translation.\n\nThe generated query is returned but **not executed** \u2014 copy it into\nthe DynamoDB console or pass it to your application code.\n\n**Available tables:** medications \u00b7 conditions \u00b7 observations \u00b7 patients \u00b7 encounters",
+        "operationId": "nl_to_partiql_ehr_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NLQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ehr/query/explain": {
+      "post": {
+        "tags": [
+          "NL Query"
+        ],
+        "summary": "Explain what a natural-language question would query",
+        "description": "Returns a plain-English breakdown of what data would be retrieved,\nwithout generating the full PartiQL.  Useful for non-technical users\nwho want to understand the query before running it.",
+        "operationId": "explain_query_ehr_query_explain_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NLQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Explain Query Ehr Query Explain Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "NLQueryRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 5,
+            "title": "Question",
+            "description": "Plain-English question about patient medication records",
+            "examples": [
+              "Find all patients prescribed Warfarin Sodium after 2015",
+              "Which patients are on more than 3 medications?",
+              "Show me diabetes medications prescribed in 2020"
+            ]
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "description": "Medication examples to use as few-shot context for the translation",
+            "default": 3
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "NLQueryRequest",
+        "description": "Natural language query request."
+      },
+      "QueryResponse": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "partiql": {
+            "type": "string",
+            "title": "Partiql",
+            "description": "Generated DynamoDB PartiQL SELECT statement"
+          },
+          "explanation": {
+            "type": "string",
+            "title": "Explanation",
+            "description": "Plain-English explanation of what the query does"
+          },
+          "tables_referenced": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tables Referenced"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "tokens_total": {
+            "type": "integer",
+            "title": "Tokens Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "partiql",
+          "explanation",
+          "tables_referenced",
+          "latency_ms",
+          "tokens_total"
+        ],
+        "title": "QueryResponse",
+        "description": "Response containing the generated PartiQL statement."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

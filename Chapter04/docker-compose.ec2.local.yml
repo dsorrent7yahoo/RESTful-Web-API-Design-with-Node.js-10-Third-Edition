@@ -42,3 +42,16 @@ services:
   django-backend:
     volumes:
       - "${HOME}/.aws:/root/.aws:ro"
+
+  # RAG API — mount ~/.aws for local credential access
+  rag-api:
+    volumes:
+      - "${HOME}/.aws:/root/.aws:ro"
+    environment:
+      RAG_LLM_BACKEND: bedrock
+      RAG_LLM_MODEL: amazon.nova-pro-v1:0
+      RAG_EMBED_BACKEND: clinicalbert
+      RAG_VECTOR_BACKEND: memory
+      RAG_MEMORY_STORE_PATH: /tmp/rag-memory-store.pkl
+    ports:
+      - "4005:4005"

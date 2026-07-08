@@ -16,13 +16,6 @@
 
 .main-panel { flex: 1; }
 
-.ai-row {
-  display: flex; gap: 10px; align-items: center; margin-bottom: 10px;
-  .ai-input { flex: 1; }
-}
-
-.ai-meta { font-size: 11px; color: #8b949e; margin: -6px 0 8px; }
-
 .sql-editor {
   width: 100%; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
   padding: 10px; border-radius: 6px; font-family: 'Consolas', monospace; font-size: 13px;

@@ -1,23 +1,11 @@
-# ── Build stage ────────────────────────────────────────────────────────────────
-FROM eclipse-temurin:25-jdk AS build
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
-
-# Copy Gradle wrapper first (cached layer)
-COPY gradle gradle
-COPY gradlew .
-RUN chmod +x gradlew
-
-# Copy build scripts and resolve dependencies (cached layer)
-COPY build.gradle settings.gradle ./
-RUN ./gradlew dependencies --no-daemon -Dorg.gradle.java.installations.auto-download=false 2>/dev/null || true
-
-# Copy source and build
+COPY pom.xml .
 COPY src src
-RUN ./gradlew bootJar -x test --no-daemon -Dorg.gradle.java.installations.auto-download=false
+RUN apk add --no-cache maven && mvn package -DskipTests
 
-# ── Runtime stage ───────────────────────────────────────────────────────────────
-FROM eclipse-temurin:25-jre
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-COPY --from=build /app/build/libs/healthcare-api-1.0.0.jar app.jar
+COPY --from=build /app/target/healthcare-api-1.0.0.jar app.jar
 EXPOSE 4003
 ENTRYPOINT ["java", "-jar", "app.jar"]

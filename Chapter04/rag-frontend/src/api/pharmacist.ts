@@ -26,6 +26,7 @@ export interface DRPResponse {
   drug_name: string;
   answer: string;
   sources_count: number;
+  sources?: string[];
   latency_ms: number;
   tokens_total: number;
   error?: string;

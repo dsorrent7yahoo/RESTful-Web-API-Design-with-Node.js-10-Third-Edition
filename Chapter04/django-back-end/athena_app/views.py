@@ -16,6 +16,20 @@ MAX_POLL_SECS = 45
 def _athena(): return boto3.client("athena", region_name=REGION)
 def _glue():   return boto3.client("glue",   region_name=REGION)
 
+
+_COL_ALIASES = [
+    ("medication_name",        "description"),
+    ("drug_name",              "description"),
+    ("med_name",               "description"),
+    ("medications.patient_id", "medications.patient"),
+    ("claims.patient_id",      "claims.patient"),
+]
+
+def _normalise_sql(sql):
+    for wrong, right in _COL_ALIASES:
+        sql = re.sub(r"(?i)\b" + re.escape(wrong) + r"\b", right, sql)
+    return sql
+
 def _execute(sql, database):
     output = f"s3://{OUTPUT_BUCKET}/{OUTPUT_PREFIX}"
     client = _athena()
@@ -55,6 +69,7 @@ def run_query(request):
     sql  = (body.get("sql") or "").strip()
     db   = (body.get("database") or DEFAULT_DB).strip()
     if not sql: return Response({"error": "sql is required"}, status=400)
+    sql = _normalise_sql(sql)
     try:    return Response({"status": "ok", "database": db, **_execute(sql, db)})
     except Exception as exc: return Response({"status": "error", "error": str(exc)}, status=400)
 
@@ -117,5 +132,6 @@ def generate_sql(request):
         result = json.loads(response["body"].read())
         sql    = result["output"]["message"]["content"][0]["text"].strip()
         sql    = "\n".join(l for l in sql.splitlines() if not l.strip().startswith("```")).strip()
+        sql    = _normalise_sql(sql)
         return Response({"status":"ok","sql":sql,"model":"amazon.nova-lite-v1:0"})
     except Exception as exc: return Response({"status":"error","error":str(exc)}, status=400)

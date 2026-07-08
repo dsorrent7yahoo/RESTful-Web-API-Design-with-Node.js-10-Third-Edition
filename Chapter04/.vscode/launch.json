@@ -1,0 +1,284 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        // ── Utilities ──────────────────────────────────────────────────────────
+        {
+            "name": "Python Debugger: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Start Chapter04 (standalone)",
+            "program": "${workspaceFolder}/app.js",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "NODE_ENV": "development",
+                "PORT": "3000",
+                "MONGO_URL": "mongodb://localhost/catalog"
+            },
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install",
+            "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Run Mocha Tests",
+            "program": "${workspaceFolder}/node_modules/.bin/mocha",
+            "args": ["test/model-test.js", "--timeout", "10000"],
+            "cwd": "${workspaceFolder}",
+            "env": { "MONGO_URL": "mongodb://localhost/catalog" },
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── API Gateway — :8080 ────────────────────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "API Gateway (8080)",
+            "program": "${workspaceFolder}/api-gateway/src/index.js",
+            "cwd": "${workspaceFolder}/api-gateway",
+            "env": {
+                "PORT": "8080",
+                "DJANGO_URL":        "http://localhost:4002",
+                "DJANGO_UI_URL":     "http://localhost:5177",
+                "FLASK_URL":         "http://localhost:4001",
+                "FLASK_UI_URL":      "http://localhost:5173",
+                "NODE_URL":          "http://localhost:4003",
+                "NODE_UI_URL":       "http://localhost:5174",
+                "RAG_URL":           "http://localhost:4005",
+                "GATEWAY_JWT_SECRET":     "gateway-jwt-local-dev-secret",
+                "GATEWAY_ADMIN_PASSWORD": "admin",
+                "GATEWAY_CUSTOMER_KEYS":  "{}",
+                "JWT_SECRET":             "healthcare-local-dev-secret"
+            },
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: api-gateway",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Node.js DynamoDB Backend — :4003 ───────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Node Backend (4003)",
+            "program": "${workspaceFolder}/dynamo-db-backend/app.js",
+            "cwd": "${workspaceFolder}/dynamo-db-backend",
+            "env": {
+                "PORT": "4003",
+                "NODE_ENV": "development",
+                "AWS_REGION": "us-east-1",
+                "DYNAMODB_TABLE": "medications",
+                "AUTO_CREATE_CSV_TABLES": "true",
+                "JWT_SECRET": "healthcare-local-dev-secret"
+            },
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: dynamo-db-backend",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Flask Backend — :4001 ──────────────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Flask Backend (4001)",
+            "program": "${workspaceFolder}/flask-dynamo-db-backend/app.py",
+            "cwd": "${workspaceFolder}/flask-dynamo-db-backend",
+            "env": {
+                "PORT": "4001",
+                "AWS_REGION": "us-east-1",
+                "DYNAMODB_TABLE": "medications",
+                "AUTO_CREATE_CSV_TABLES": "true",
+                "JWT_SECRET": "healthcare-local-dev-secret",
+                "JWT_EXP_MINUTES": "60",
+                "FLASK_ENV": "development",
+                "FLASK_DEBUG": "1"
+            },
+            "console": "integratedTerminal"
+        },
+
+        // ── Django Backend — :4002 ─────────────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Django Backend (4002)",
+            "program": "${workspaceFolder}/django-back-end/manage.py",
+            "args": ["runserver", "0.0.0.0:4002", "--noreload"],
+            "cwd": "${workspaceFolder}/django-back-end",
+            "django": true,
+            "env": {
+                "DJANGO_SETTINGS_MODULE": "config.settings",
+                "AWS_REGION": "us-east-1",
+                "DYNAMODB_TABLE": "medications",
+                "JWT_SECRET": "healthcare-local-dev-secret",
+                "JWT_EXP_MINUTES": "60"
+            },
+            "console": "integratedTerminal"
+        },
+
+        // ── Flask React Frontend — :5173 ───────────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Flask Frontend (5173)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/flask-dynamo-db-frontend",
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: flask-dynamo-db-frontend",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Node React Frontend — :5174 ────────────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Node Frontend (5174)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/dynamo-db-frontend",
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: dynamo-db-frontend",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Django React Frontend — :5175 ──────────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Django Frontend (5175)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/django-front-end",
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: django-front-end",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Django TypeScript Frontend — :5177 ─────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Django TS Frontend (5177)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/Django-Fronend-Typescript",
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: Django-Fronend-Typescript",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── Landing Page — :5176 ───────────────────────────────────────────────
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Landing Page (5176)",
+            "runtimeExecutable": "npm",
+            "runtimeArgs": ["run", "dev"],
+            "cwd": "${workspaceFolder}/landing-page",
+            "console": "integratedTerminal",
+            "preLaunchTask": "npm install: landing-page",
+            "skipFiles": ["<node_internals>/**"]
+        },
+
+        // ── RAG API (FastAPI) — :4005 ──────────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "RAG API (4005)",
+            "module": "uvicorn",
+            "args": ["main:app", "--reload", "--port", "4005"],
+            "cwd": "${workspaceFolder}/rag-api",
+            "env": {
+                "RAG_EMBED_BACKEND": "clinicalbert",
+                "RAG_VECTOR_BACKEND": "memory",
+                "RAG_LLM_BACKEND": "bedrock",
+                "RAG_LLM_MODEL": "amazon.nova-pro-v1:0",
+                "AWS_REGION": "us-east-1",
+                "DYNAMODB_TABLE": "medications",
+                "JWT_SECRET": "healthcare-local-dev-secret",
+                "PORT": "4005"
+            },
+            "console": "integratedTerminal",
+            "preLaunchTask": "pip install: rag-api"
+        },
+
+        // ── Pharmacist Review API — :4006 ──────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Pharmacist Review API (4006)",
+            "module": "uvicorn",
+            "args": ["pharmacist_review:app", "--reload", "--port", "4006"],
+            "cwd": "${workspaceFolder}/rag-api",
+            "env": {
+                "RAG_URL": "http://localhost:4005",
+                "AWS_REGION": "us-east-1",
+                "PORT": "4006"
+            },
+            "console": "integratedTerminal"
+        },
+
+        // ── EHR Query API — :4007 ──────────────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "EHR Query API (4007)",
+            "module": "uvicorn",
+            "args": ["ehr_query:app", "--reload", "--port", "4007"],
+            "cwd": "${workspaceFolder}/rag-api",
+            "env": {
+                "RAG_URL": "http://localhost:4005",
+                "AWS_REGION": "us-east-1",
+                "PORT": "4007"
+            },
+            "console": "integratedTerminal"
+        },
+
+        // ── Diagnosis Support API — :4008 ──────────────────────────────────────
+        {
+            "type": "debugpy",
+            "request": "launch",
+            "name": "Diagnosis Support API (4008)",
+            "module": "uvicorn",
+            "args": ["diagnosis_support:app", "--reload", "--port", "4008"],
+            "cwd": "${workspaceFolder}/rag-api",
+            "env": {
+                "RAG_URL": "http://localhost:4005",
+                "AWS_REGION": "us-east-1",
+                "PORT": "4008"
+            },
+            "console": "integratedTerminal"
+        }
+    ],
+
+    "compounds": [
+        {
+            "name": "All EC2 Services (local dev)",
+            "configurations": [
+                "API Gateway (8080)",
+                "Node Backend (4003)",
+                "Flask Backend (4001)",
+                "Django Backend (4002)",
+                "Flask Frontend (5173)",
+                "Node Frontend (5174)",
+                "Django Frontend (5175)",
+                "Django TS Frontend (5177)",
+                "Landing Page (5176)",
+                "RAG API (4005)",
+                "Pharmacist Review API (4006)",
+                "EHR Query API (4007)",
+                "Diagnosis Support API (4008)"
+            ],
+            "stopAll": true,
+            "preLaunchTask": "install: all services"
+        }
+    ]
+}

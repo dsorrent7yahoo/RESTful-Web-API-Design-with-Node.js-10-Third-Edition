@@ -4,12 +4,9 @@ import com.healthcare.api.config.AppProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.util.*;
 
@@ -210,78 +207,5 @@ public class MedicationService {
         String n = item.get(key).n();
         if (n == null) return null;
         try { return new BigDecimal(n); } catch (Exception e) { return null; }
-    }
-
-    public Map<String, Object> uploadCsv(MultipartFile file, String tableName,
-                                          Map<String, Object> body) throws Exception {
-        String tbl = tableName != null ? tableName : table();
-        List<String[]> rows = new ArrayList<>();
-        String[] headers = null;
-
-        // Read from multipart file or from body.content
-        java.io.InputStream is = null;
-        if (file != null && !file.isEmpty()) {
-            is = file.getInputStream();
-        } else if (body != null && body.get("content") instanceof String) {
-            is = new java.io.ByteArrayInputStream(((String) body.get("content")).getBytes());
-        } else {
-            throw new IllegalArgumentException("file or content is required");
-        }
-
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.isBlank()) continue;
-                String[] cols = line.split(",", -1);
-                if (headers == null) { headers = cols; continue; }
-                rows.add(cols);
-            }
-        }
-
-        if (headers == null) throw new IllegalArgumentException("CSV has no header row");
-        int imported = 0;
-        for (int idx = 0; idx < rows.size(); idx++) {
-            String[] vals = rows.get(idx);
-            Map<String, AttributeValue> item = buildCsvItem(headers, vals, idx);
-            dynamo.putItem(PutItemRequest.builder().tableName(tbl).item(item).build());
-            imported++;
-        }
-        return Map.of("status", "ok", "table", tbl, "imported", imported);
-    }
-
-    private Map<String, AttributeValue> buildCsvItem(String[] headers, String[] vals, int idx) {
-        Map<String, AttributeValue> item = new HashMap<>();
-        Map<String, String> raw = new LinkedHashMap<>();
-        for (int i = 0; i < headers.length; i++) {
-            raw.put(headers[i].trim().toUpperCase(), i < vals.length ? vals[i].trim() : "");
-        }
-        String patient  = raw.getOrDefault("PATIENT", "");
-        String encounter = raw.getOrDefault("ENCOUNTER", "");
-        String code     = raw.getOrDefault("CODE", "");
-        String start    = raw.getOrDefault("START", "");
-        String stop     = raw.getOrDefault("STOP", "");
-        String id       = patient + "-" + encounter + "-" + code + "-" +
-                          start.replace(":", "") + "-" + stop.replace(":", "") + "-" + idx;
-
-        item.put("id", AttributeValue.fromS(id));
-        if (!patient.isBlank())   item.put("patient",   AttributeValue.fromS(patient));
-        if (!encounter.isBlank()) item.put("encounter", AttributeValue.fromS(encounter));
-        if (!code.isBlank())      item.put("code",      AttributeValue.fromS(code));
-        if (!start.isBlank())     item.put("start",     AttributeValue.fromS(start));
-        if (!stop.isBlank())      item.put("stop",      AttributeValue.fromS(stop));
-        String desc = raw.getOrDefault("DESCRIPTION", "");
-        if (!desc.isBlank()) item.put("description", AttributeValue.fromS(desc));
-        String payer = raw.getOrDefault("PAYER", "");
-        if (!payer.isBlank()) item.put("payer", AttributeValue.fromS(payer));
-        for (String numKey : List.of("BASE_COST", "PAYER_COVERAGE", "DISPENSES", "TOTALCOST")) {
-            String javaKey = numKey.equals("BASE_COST") ? "baseCost" :
-                             numKey.equals("PAYER_COVERAGE") ? "payerCoverage" :
-                             numKey.equals("DISPENSES") ? "dispenses" : "totalCost";
-            String val = raw.getOrDefault(numKey, "");
-            if (!val.isBlank()) {
-                try { item.put(javaKey, AttributeValue.fromN(val)); } catch (Exception ignored) {}
-            }
-        }
-        return item;
     }
 }

@@ -43,8 +43,6 @@ export class MedicationsComponent implements OnInit {
   showForm     = signal(false);
   editing      = signal<Medication | null>(null);
   filterText   = signal('');
-  uploadFile   = signal<File | null>(null);
-  uploadLoading = signal(false);
 
   displayedColumns = ['id', 'patient', 'code', 'description', 'baseCost', 'totalCost', 'actions'];
 
@@ -124,30 +122,5 @@ export class MedicationsComponent implements OnInit {
     if (!q) return this.medications();
     return this.medications().filter(m =>
       [m.id, m.patient, m.code, m.description].some(v => v?.toLowerCase().includes(q)));
-  }
-
-  onUploadFileSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (input.files?.length) this.uploadFile.set(input.files[0]);
-  }
-
-  uploadCsv(): void {
-    const file = this.uploadFile();
-    if (!file) return;
-    this.uploadLoading.set(true);
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-    this.http.post<any>(`${this.baseUrl}/medications/upload`, formData).subscribe({
-      next: res => {
-        this.uploadLoading.set(false);
-        this.uploadFile.set(null);
-        this.snack.open(`Imported ${res.imported ?? '?'} rows ✓`, '', { duration: 3000 });
-        this.load();
-      },
-      error: err => {
-        this.uploadLoading.set(false);
-        this.snack.open(err.error?.error ?? 'Upload failed', '', { duration: 3000 });
-      },
-    });
   }
 }

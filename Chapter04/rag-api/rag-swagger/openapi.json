@@ -1,0 +1,1658 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Healthcare RAG API",
+    "description": "Retrieval-Augmented Generation for clinical medication intelligence. Indexes medications, FDA labels, SNOMED, LOINC, and clinical guidelines. Research: Lewis 2020, PACE-RAG 2603.17356, REALM 2402.07016, EMERGE 2406.00036.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/rag/query/simple": {
+      "post": {
+        "tags": [
+          "RAG",
+          "RAG \u2014 ID-Free"
+        ],
+        "summary": "Clinical Query (no patient ID)",
+        "description": "Ask a clinical question **without** linking to a patient record or restricting\nto a specific index shard. All indexed corpora are searched.\n\nUse `POST /rag/query` when you also want patient-aware (PACE-RAG) retrieval.\n\n**Modes:** `standard` \u00b7 `copilot` \u00b7 `sql` \u00b7 `diagnosis`",
+        "operationId": "rag_query_simple_rag_query_simple_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGQueryRequestSimple"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGQueryResponseSimple"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/simple": {
+      "post": {
+        "tags": [
+          "RAG",
+          "RAG \u2014 ID-Free"
+        ],
+        "summary": "Index Default Corpus (no table ID required)",
+        "description": "Trigger medication indexing using environment-variable defaults \u2014 no `table_name` or `patient_id` required.\n\nInternally calls `POST /rag/index/medications` with `table_name` from `DYNAMODB_TABLE` env var (default: `medications`).\n\nUse `POST /rag/index/medications` when you need to specify a custom table.",
+        "operationId": "index_simple_rag_index_simple_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexRequestSimple"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/query": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Clinical RAG Query",
+        "description": "Ask a clinical question answered from indexed corpora.\n\n**Modes:**\n- `standard` \u2014 direct grounded answer\n- `copilot` \u2014 PCNE Drug-Related Problem report (arXiv:2402.01741)\n- `sql` \u2014 natural language \u2192 DynamoDB PartiQL (arXiv:2603.05569)\n- `diagnosis` \u2014 CPG-grounded differential diagnosis (arXiv:2506.21615)\n\nSet `patient_id` to enable PACE-RAG patient-aware retrieval (arXiv:2603.17356).\n\n**index_filter values:** `medications` \u00b7 `fda-labels` \u00b7 `snomed` \u00b7 `loinc` \u00b7 `guidelines`",
+        "operationId": "rag_query_rag_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGQueryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/medications": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Index Medications Table",
+        "description": "Scans DynamoDB `medications` table and embeds each record with ClinicalBERT.\n\n**`limit`** controls how many records to index (default 500 for fast demo; set to 0 for all 371 806 records \u2014 takes ~30 min on CPU).\n\nReturns 202 immediately. Poll `GET /rag/jobs/{job_id}` for live progress.",
+        "operationId": "index_medications_rag_index_medications_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexMedicationsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/fda-labels": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Index FDA Drug Labels",
+        "description": "Fetches drug labels from `api.fda.gov/drug/label.json` for every unique drug description in the medications table. Indexes 8 label sections per drug.\n\nFree API \u2014 no key required (1 000 req/day). Set `FDA_API_KEY` env var for 120 000 req/day.",
+        "operationId": "index_fda_rag_index_fda_labels_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexFDARequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/snomed": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Index SNOMED CT Conditions",
+        "description": "Scans `conditions` DynamoDB table for SNOMED CT codes and indexes concept names + synonyms from the UMLS Metathesaurus API.\n\nRequires `UMLS_API_KEY` env var (free: https://uts.nlm.nih.gov/uts/signup-login).",
+        "operationId": "index_snomed_rag_index_snomed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexSNOMEDRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/loinc": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Index LOINC Observation Codes",
+        "description": "Indexes LOINC codes with clinical names, units, and reference ranges. 16 common codes (vitals, CBC, metabolic panel) are always included from a built-in table \u2014 **no DynamoDB or external API required.**\n\nPass `loinc_csv_path` to index the full LOINC table (free download from loinc.org).",
+        "operationId": "index_loinc_rag_index_loinc_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexLOINCRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/guidelines": {
+      "post": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Index Clinical Practice Guideline (PDF or HTML)",
+        "description": "Downloads and indexes a clinical practice guideline. URL ending in `.pdf` \u2192 PDF text extraction; otherwise \u2192 HTML stripping.\n\nImplements GARMLE-G retrieval pattern (arXiv:2506.21615). Sliding-window chunking: default 400-word chunks, 50-word overlap.",
+        "operationId": "index_guideline_rag_index_guidelines_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IndexGuidelineRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexJobResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/index/status": {
+      "get": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Vector Index Statistics",
+        "operationId": "index_status_rag_index_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IndexStatusResponse"
+                }
+              }
+            }
+          }
+        },
+        "description": "**No authentication required.**\n\n"
+      }
+    },
+    "/rag/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Background Indexing Job Status",
+        "operationId": "job_status_rag_jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "description": "**No authentication required.**\n\n"
+      }
+    },
+    "/rag/index": {
+      "delete": {
+        "tags": [
+          "RAG"
+        ],
+        "summary": "Delete Vector Index (Admin Only)",
+        "operationId": "delete_index_rag_index_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "shard",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Shard"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rag/models/{name}": {
+      "get": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Get One Model",
+        "operationId": "get_model_rag_models__name__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Delete a Model",
+        "operationId": "delete_model_ep_rag_models__name__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Model Ep Rag Models  Name  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rag/models/": {
+      "post": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Register a New Model",
+        "operationId": "create_model_rag_models__post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelConfig"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/rag/models/{name}/activate": {
+      "put": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Activate a Model",
+        "operationId": "activate_model_rag_models__name__activate_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rag/models/{name}/test": {
+      "post": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Run Test Queries Against a Model",
+        "operationId": "test_model_rag_models__name__test_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelTestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModelTestResult"
+                  },
+                  "title": "Response Test Model Rag Models  Name  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rag/models/{name}/promote": {
+      "post": {
+        "tags": [
+          "Models"
+        ],
+        "summary": "Promote Model \u2014 Test Then Activate",
+        "description": "Runs 3 built-in clinical test questions against the live `/rag/query/simple` endpoint and, if all answers pass, automatically activates this model as the default for `POST /rag/query`.\n\nIf any test fails, the model is **not** activated (HTTP 422 returned).\n\nTest questions: HbA1c normal range \u00b7 Metformin uses \u00b7 Blood pressure range.\n\nUse `PUT /{name}/activate` to force-promote without testing.",
+        "operationId": "promote_model_rag_models__name__promote_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        },
+        "description": "**No authentication required.**\n\n"
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "IndexFDARequest": {
+        "properties": {
+          "table_name": {
+            "type": "string",
+            "title": "Table Name",
+            "default": "medications"
+          }
+        },
+        "type": "object",
+        "title": "IndexFDARequest"
+      },
+      "IndexGuidelineRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "source_label": {
+            "type": "string",
+            "title": "Source Label"
+          },
+          "chunk_size": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 100.0,
+            "title": "Chunk Size",
+            "default": 400
+          },
+          "overlap": {
+            "type": "integer",
+            "maximum": 200.0,
+            "minimum": 0.0,
+            "title": "Overlap",
+            "default": 50
+          }
+        },
+        "type": "object",
+        "required": [
+          "url",
+          "source_label"
+        ],
+        "title": "IndexGuidelineRequest"
+      },
+      "IndexJobResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "job_id",
+          "message"
+        ],
+        "title": "IndexJobResponse"
+      },
+      "IndexLOINCRequest": {
+        "properties": {
+          "table_name": {
+            "type": "string",
+            "title": "Table Name",
+            "default": "observations"
+          },
+          "loinc_csv_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loinc Csv Path"
+          }
+        },
+        "type": "object",
+        "title": "IndexLOINCRequest"
+      },
+      "IndexMedicationsRequest": {
+        "properties": {
+          "table_name": {
+            "type": "string",
+            "title": "Table Name",
+            "default": "medications"
+          },
+          "batch_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "default": 100
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Limit",
+            "description": "Max records to index (0=all). Default 500 for fast demo.",
+            "default": 500
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          }
+        },
+        "type": "object",
+        "title": "IndexMedicationsRequest"
+      },
+      "IndexRequestSimple": {
+        "properties": {
+          "batch_size": {
+            "type": "integer",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "default": 100
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Limit",
+            "description": "Max records (0=all). Default 500 for fast demo.",
+            "default": 500
+          }
+        },
+        "type": "object",
+        "title": "IndexRequestSimple",
+        "description": "Trigger corpus indexing without specifying a table \u2014 uses env-var defaults."
+      },
+      "IndexSNOMEDRequest": {
+        "properties": {
+          "table_name": {
+            "type": "string",
+            "title": "Table Name",
+            "default": "conditions"
+          },
+          "umls_api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Umls Api Key"
+          }
+        },
+        "type": "object",
+        "title": "IndexSNOMEDRequest"
+      },
+      "IndexStatusResponse": {
+        "properties": {
+          "backend": {
+            "type": "string",
+            "title": "Backend"
+          },
+          "shards": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ShardStatus"
+            },
+            "type": "object",
+            "title": "Shards"
+          },
+          "total_docs": {
+            "type": "integer",
+            "title": "Total Docs"
+          },
+          "embedder": {
+            "type": "string",
+            "title": "Embedder"
+          },
+          "dimension": {
+            "type": "integer",
+            "title": "Dimension"
+          }
+        },
+        "type": "object",
+        "required": [
+          "backend",
+          "shards",
+          "total_docs",
+          "embedder",
+          "dimension"
+        ],
+        "title": "IndexStatusResponse"
+      },
+      "JobStatusResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "shard": {
+            "type": "string",
+            "title": "Shard"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "documents_done": {
+            "type": "integer",
+            "title": "Documents Done"
+          },
+          "documents_total": {
+            "type": "integer",
+            "title": "Documents Total"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "shard",
+          "status",
+          "documents_done",
+          "documents_total",
+          "error",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "JobStatusResponse"
+      },
+      "ModelConfig": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Unique model name: e.g. 'main', 'test', 'staging'"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "Human-readable label shown in Swagger / UI"
+          },
+          "embed_backend": {
+            "type": "string",
+            "title": "Embed Backend",
+            "description": "clinicalbert | openai | bedrock",
+            "default": "clinicalbert"
+          },
+          "llm_backend": {
+            "type": "string",
+            "title": "Llm Backend",
+            "description": "openai | bedrock | ollama",
+            "default": "bedrock"
+          },
+          "llm_model": {
+            "type": "string",
+            "title": "Llm Model",
+            "description": "Bedrock model/profile ID or OpenAI model name",
+            "default": "amazon.nova-pro-v1:0"
+          },
+          "shard_filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shard Filter",
+            "description": "Restrict queries to one index shard: medications | fda-labels | snomed | loinc | guidelines"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "description": "Default retrieved passages for this model",
+            "default": 5
+          },
+          "alpha": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Alpha",
+            "description": "Hybrid weight: 0=BM25 only, 1=dense only",
+            "default": 0.6
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Optional notes, e.g. corpus size, intended use",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "ModelConfig"
+      },
+      "ModelStatus": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "is_active": {
+            "type": "boolean",
+            "title": "Is Active"
+          },
+          "embed_backend": {
+            "type": "string",
+            "title": "Embed Backend"
+          },
+          "llm_backend": {
+            "type": "string",
+            "title": "Llm Backend"
+          },
+          "llm_model": {
+            "type": "string",
+            "title": "Llm Model"
+          },
+          "shard_filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shard Filter"
+          },
+          "top_k": {
+            "type": "integer",
+            "title": "Top K"
+          },
+          "alpha": {
+            "type": "number",
+            "title": "Alpha"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "last_tested": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Tested"
+          },
+          "test_pass": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Pass"
+          },
+          "doc_count": {
+            "type": "integer",
+            "title": "Doc Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "is_active",
+          "embed_backend",
+          "llm_backend",
+          "llm_model",
+          "shard_filter",
+          "top_k",
+          "alpha",
+          "description",
+          "created_at",
+          "last_tested",
+          "test_pass",
+          "doc_count"
+        ],
+        "title": "ModelStatus"
+      },
+      "ModelTestRequest": {
+        "properties": {
+          "questions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Questions",
+            "description": "List of test questions to run against this model",
+            "default": [
+              "What is Metformin prescribed for?",
+              "Normal HbA1c reference range?",
+              "Find patients on Warfarin"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "copilot",
+              "sql",
+              "diagnosis"
+            ],
+            "title": "Mode",
+            "default": "standard"
+          }
+        },
+        "type": "object",
+        "title": "ModelTestRequest"
+      },
+      "ModelTestResult": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources_count": {
+            "type": "integer",
+            "title": "Sources Count"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "tokens_total": {
+            "type": "integer",
+            "title": "Tokens Total"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "answer",
+          "sources_count",
+          "latency_ms",
+          "tokens_total",
+          "error"
+        ],
+        "title": "ModelTestResult"
+      },
+      "RAGQueryRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Question"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "copilot",
+              "sql",
+              "diagnosis"
+            ],
+            "title": "Mode",
+            "default": "standard"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 5
+          },
+          "index_filter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Filter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "RAGQueryRequest"
+      },
+      "RAGQueryRequestSimple": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 3,
+            "title": "Question",
+            "description": "Natural-language clinical question"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "copilot",
+              "sql",
+              "diagnosis"
+            ],
+            "title": "Mode",
+            "description": "Generation mode",
+            "default": "standard"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "description": "Passages to retrieve",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "required": [
+          "question"
+        ],
+        "title": "RAGQueryRequestSimple",
+        "description": "Simplified query \u2014 no patient context, no shard restriction.\nUse this when you want a clinical answer without linking to a specific patient."
+      },
+      "RAGQueryResponse": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourcePassage"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "patient_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Id"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenUsage"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "sources",
+          "mode",
+          "patient_id",
+          "tokens",
+          "latency_ms"
+        ],
+        "title": "RAGQueryResponse"
+      },
+      "RAGQueryResponseSimple": {
+        "properties": {
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourcePassage"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode"
+          },
+          "tokens": {
+            "$ref": "#/components/schemas/TokenUsage"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "answer",
+          "sources",
+          "mode",
+          "tokens",
+          "latency_ms"
+        ],
+        "title": "RAGQueryResponseSimple",
+        "description": "Response without patient-linked fields."
+      },
+      "ShardStatus": {
+        "properties": {
+          "doc_count": {
+            "type": "integer",
+            "title": "Doc Count"
+          },
+          "last_indexed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Indexed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "doc_count",
+          "last_indexed"
+        ],
+        "title": "ShardStatus"
+      },
+      "SourcePassage": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "source",
+          "score"
+        ],
+        "title": "SourcePassage"
+      },
+      "TokenUsage": {
+        "properties": {
+          "prompt": {
+            "type": "integer",
+            "title": "Prompt"
+          },
+          "completion": {
+            "type": "integer",
+            "title": "Completion"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt",
+          "completion",
+          "total"
+        ],
+        "title": "TokenUsage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

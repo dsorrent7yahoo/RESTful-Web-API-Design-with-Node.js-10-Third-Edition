@@ -1,0 +1,369 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Pharmacist Review API",
+    "description": "## Clinical Decision Support for Pharmacists\n\nIdentifies Drug-Related Problems (DRPs) using FDA drug label data and\npatient medication records.  Every finding is grounded in a retrieved\nFDA label passage and cited with [source: id] notation.\n\n**Powered by:** RAG API (port 4005) \u00b7 Claude Sonnet 4.6 \u00b7 FDA OpenFDA corpus\n\n**Research basis:** RAG-CDSS arXiv:2402.01741 (PCNE DRP classification)",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Service health check",
+        "description": "Check that the Pharmacist Review API and its RAG backend are reachable.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/medication": {
+      "post": {
+        "tags": [
+          "DRP Review"
+        ],
+        "summary": "Review one medication for DRPs",
+        "description": "Retrieves FDA drug label passages (drug interactions, warnings, contraindications)\nfor the named drug and generates a structured PCNE DRP report.\n\nAdd `patient_conditions` to personalise the review \u2014 the query is augmented\nwith the patient's condition list before FDA label retrieval.",
+        "operationId": "review_medication_review_medication_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DRPReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DRPReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/patient/{patient_id}": {
+      "post": {
+        "tags": [
+          "DRP Review"
+        ],
+        "summary": "Full DRP review for a patient's active medications",
+        "description": "Looks up the patient's active medication records from DynamoDB, then\nretrieves FDA label DRP information for the combined drug regimen.\n\n`patient_id` must be a valid UUID from the `medications` DynamoDB table.",
+        "operationId": "review_patient_review_patient__patient_id__post",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Patient UUID from the medications DynamoDB table",
+              "title": "Patient Id"
+            },
+            "description": "Patient UUID from the medications DynamoDB table"
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Top K"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DRPReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/review/interaction": {
+      "post": {
+        "tags": [
+          "DRP Review"
+        ],
+        "summary": "Check drug-drug interactions between 2 or more drugs",
+        "description": "Checks for documented interactions between the supplied list of drug names\nusing FDA drug label data from the fda-labels corpus shard.\n\nPass 2 or more drug names.  The system retrieves FDA interaction passages\nfor each drug and generates a combined DRP report.",
+        "operationId": "check_interaction_review_interaction_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InteractionCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DRPReviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DRPReviewRequest": {
+        "properties": {
+          "drug_name": {
+            "type": "string",
+            "title": "Drug Name",
+            "description": "Drug name as it appears in the prescription (e.g. 'Warfarin Sodium 5 MG')"
+          },
+          "patient_conditions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Conditions",
+            "description": "Known patient conditions to personalise the review (e.g. ['hypertension', 'diabetes'])"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "description": "Number of FDA label passages to retrieve",
+            "default": 4
+          }
+        },
+        "type": "object",
+        "required": [
+          "drug_name"
+        ],
+        "title": "DRPReviewRequest",
+        "description": "Request body for reviewing a single medication."
+      },
+      "DRPReviewResponse": {
+        "properties": {
+          "drug_name": {
+            "type": "string",
+            "title": "Drug Name"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "sections": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DRPSection"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources_count": {
+            "type": "integer",
+            "title": "Sources Count"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          },
+          "tokens_total": {
+            "type": "integer",
+            "title": "Tokens Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "drug_name",
+          "answer",
+          "sections",
+          "sources_count",
+          "latency_ms",
+          "tokens_total"
+        ],
+        "title": "DRPReviewResponse"
+      },
+      "DRPSection": {
+        "properties": {
+          "problem": {
+            "type": "string",
+            "title": "Problem"
+          },
+          "cause": {
+            "type": "string",
+            "title": "Cause"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "intervention": {
+            "type": "string",
+            "title": "Intervention"
+          },
+          "sources": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sources"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem",
+          "cause",
+          "severity",
+          "intervention",
+          "sources"
+        ],
+        "title": "DRPSection"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "InteractionCheckRequest": {
+        "properties": {
+          "drugs": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Drugs",
+            "description": "List of 2+ drug names to check for interactions",
+            "examples": [
+              [
+                "Warfarin Sodium 5 MG",
+                "Naproxen 500 MG"
+              ]
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "drugs"
+        ],
+        "title": "InteractionCheckRequest",
+        "description": "Request body for checking interactions between two or more drugs."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

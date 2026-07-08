@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -79,18 +78,6 @@ public class MedicationController {
         } catch (RuntimeException e) {
             if ("NOT_FOUND".equals(e.getMessage())) return ResponseEntity.notFound().build();
             throw e;
-        }
-    }
-
-    @PostMapping("/upload")
-    public ResponseEntity<Object> upload(
-            @RequestParam(required = false) MultipartFile file,
-            @RequestParam(required = false) String table,
-            @RequestBody(required = false) Map<String, Object> body) {
-        try {
-            return ResponseEntity.ok(service.uploadCsv(file, table, body));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

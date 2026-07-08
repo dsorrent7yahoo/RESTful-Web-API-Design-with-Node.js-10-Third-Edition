@@ -1,0 +1,67 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "BedrockInvokeModels",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": [
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-lite-v1:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-micro-v1:0",
+        "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0",
+        "arn:aws:bedrock:us-east-1:005905648819:inference-profile/us.amazon.nova-pro-v1:0",
+        "arn:aws:bedrock:us-east-1:005905648819:inference-profile/us.anthropic.claude-sonnet-4-6",
+        "arn:aws:bedrock:us-east-1:005905648819:inference-profile/us.anthropic.claude-sonnet-4-20250514-v1:0",
+        "arn:aws:bedrock:us-east-1:005905648819:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        "arn:aws:bedrock:*:005905648819:inference-profile/*"
+      ]
+    },
+    {
+      "Sid": "BedrockListModels",
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:ListFoundationModels",
+        "bedrock:ListInferenceProfiles",
+        "bedrock:GetFoundationModel"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DynamoDBMedicationsRead",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:Scan",
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:DescribeTable"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-1:005905648819:table/medications",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/conditions",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/observations",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/patients",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/encounters",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/medications/index/*",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/conditions/index/*",
+        "arn:aws:dynamodb:us-east-1:005905648819:table/observations/index/*"
+      ]
+    },
+    {
+      "Sid": "S3GuidelineCache",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::dgs-glue-staging",
+        "arn:aws:s3:::dgs-glue-staging/rag-cache/*"
+      ]
+    }
+  ]
+}

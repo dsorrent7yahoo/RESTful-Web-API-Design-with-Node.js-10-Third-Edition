@@ -1,7 +1,7 @@
 .med-container { padding: 16px; }
 
 .toolbar-row {
-  display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
   .section-title { font-weight: 700; color: #7dd3fc; flex: 1; }
 }
 
@@ -9,13 +9,6 @@
   background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
   padding: 6px 12px; border-radius: 6px; font-size: 13px; width: 260px;
   &:focus { outline: none; border-color: #58a6ff; }
-}
-
-.upload-btn {
-  display: inline-flex; align-items: center; gap: 4px;
-  border: 1px dashed #58a6ff; border-radius: 6px; padding: 4px 12px;
-  cursor: pointer; font-size: 13px; color: #58a6ff;
-  &:hover { background: rgba(88,166,255,.1); }
 }
 
 .table-wrapper { max-height: 420px; overflow-y: auto; }

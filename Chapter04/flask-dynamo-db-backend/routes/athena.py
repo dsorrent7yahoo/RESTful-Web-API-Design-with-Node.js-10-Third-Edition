@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 routes/athena.py
 Athena SQL client — queries the Glue Catalog and returns results as JSON.
@@ -27,6 +28,26 @@ def _athena():
 
 def _glue():
     return boto3.client("glue", region_name=REGION)
+
+
+# Column aliases the LLM commonly hallucinates → actual Glue/Athena column names
+_COL_ALIASES: list[tuple[str, str]] = [
+    # medications table
+    ("medication_name",       "description"),
+    ("drug_name",             "description"),
+    ("med_name",              "description"),
+    ("medications.patient_id","medications.patient"),
+    # claims / encounters
+    ("claims.patient_id",     "claims.patient"),
+]
+
+def _normalise_sql(sql: str) -> str:
+    """Replace hallucinated column names with their real Athena equivalents."""
+    import re
+    for wrong, right in _COL_ALIASES:
+        # word-boundary replacement, case-insensitive
+        sql = re.sub(r"(?i)\b" + re.escape(wrong) + r"\b", right, sql)
+    return sql
 
 
 def _execute(sql: str, database: str) -> dict:
@@ -97,6 +118,7 @@ def run_query():
     db   = (body.get("database") or DEFAULT_DB).strip()
     if not sql:
         return jsonify({"error": "sql is required"}), 400
+    sql = _normalise_sql(sql)
     try:
         result = _execute(sql, db)
         return jsonify({"status": "ok", "database": db, **result})
@@ -206,6 +228,7 @@ def generate_sql():
                 continue
             clean.append(line)
         sql = "\n".join(clean).strip()
+        sql = _normalise_sql(sql)
         return jsonify({"status": "ok", "sql": sql, "model": "amazon.nova-lite-v1:0"})
     except Exception as exc:
         return jsonify({"status": "error", "error": str(exc)}), 400

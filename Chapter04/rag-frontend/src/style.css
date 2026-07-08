@@ -84,6 +84,9 @@ textarea { resize: vertical; min-height: 72px; }
 .result-box { margin: 0 24px 24px; border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden; }
 .result-meta { background: var(--light); padding: 10px 16px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
 .badge { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 3px 10px; font-size: .78rem; font-weight: 500; }
+.result-sources { padding: 8px 16px; background: #f0f9ff; border-bottom: 1px solid var(--border); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.sources-label { font-size: .75rem; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: .04em; white-space: nowrap; }
+.source-tag { font-size: .75rem; background: #e0f2fe; border: 1px solid #7dd3fc; border-radius: 10px; padding: 2px 9px; color: #0c4a6e; font-family: monospace; white-space: nowrap; }
 .result-content { padding: 16px 20px; line-height: 1.7; }
 .result-content p  { margin-bottom: 8px; font-size: .9rem; }
 .partiql-block { background: #1e1e2e; color: #cdd6f4; padding: 16px 20px; font-family: 'Courier New', monospace; font-size: .88rem; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }

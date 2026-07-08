@@ -10,7 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from '../../services/auth.service';
-import { ApiService, BACKEND_PRESETS } from '../../services/api.service';
+import { BACKEND_PRESETS } from '../../services/api.service';
 
 @Component({
   selector: 'app-login',
@@ -34,14 +34,10 @@ export class LoginComponent {
   loading  = signal(false);
   error    = signal('');
   presets  = Object.entries(BACKEND_PRESETS);
-  landingUrl = window.location.hostname === 'localhost'
-    ? `${window.location.protocol}//localhost:5180`
-    : `${window.location.protocol}//${window.location.hostname}`;
 
   constructor(
     private fb: FormBuilder,
     private auth: AuthService,
-    private api: ApiService,
     private router: Router,
   ) {
     if (auth.isLoggedIn()) router.navigate(['/dashboard']);
@@ -52,9 +48,7 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set('');
     const { email, password, backend } = this.form.value;
-    const key     = backend as string;
-    const baseUrl = BACKEND_PRESETS[key] ?? BACKEND_PRESETS['cmdline'];
-    this.api.setBaseUrl(baseUrl, key);
+    const baseUrl = BACKEND_PRESETS[backend as string] ?? BACKEND_PRESETS['cmdline'];
     this.auth.login(email!, password!, baseUrl).subscribe({
       next: () => this.router.navigate(['/dashboard']),
       error: err => {

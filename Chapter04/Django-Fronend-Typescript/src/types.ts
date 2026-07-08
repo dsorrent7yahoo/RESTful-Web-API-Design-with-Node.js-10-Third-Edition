@@ -21,6 +21,17 @@ export interface MedicationOption {
   label: string;
 }
 
+export interface PatientDetail {
+  id: string;
+  first: string;
+  last: string;
+}
+
+export interface MedicationDetail {
+  id: string;
+  description: string;
+}
+
 export interface BucketObject {
   key: string;
   size: number;

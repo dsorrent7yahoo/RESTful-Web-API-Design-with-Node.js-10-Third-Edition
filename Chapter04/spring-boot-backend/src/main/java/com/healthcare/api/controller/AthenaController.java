@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.List;
 
 @RestController
 @RequestMapping("/athena")
@@ -51,20 +50,6 @@ public class AthenaController {
     public ResponseEntity<Object> schema(@RequestParam(required = false) String database) {
         try {
             return ResponseEntity.ok(athenaService.getSchema(database));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
-    }
-
-    @PostMapping("/generate-sql")
-    public ResponseEntity<Object> generateSql(@RequestBody Map<String, String> body) {
-        String prompt   = body.get("prompt");
-        String database = body.get("database");
-        if (prompt == null || prompt.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "prompt is required"));
-        }
-        try {
-            return ResponseEntity.ok(athenaService.generateSql(prompt, database));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

@@ -36,11 +36,6 @@
             </div>
           }
           @empty { <p class="empty">No CSV files in staging bucket</p> }
-          <div class="process-all-row">
-            <button mat-raised-button color="warn" (click)="processAll()" [disabled]="loading() || !files().length">
-              <mat-icon>cleaning_services</mat-icon> Process All &amp; Delete CSVs
-            </button>
-          </div>
         </div>
       </mat-tab>
 

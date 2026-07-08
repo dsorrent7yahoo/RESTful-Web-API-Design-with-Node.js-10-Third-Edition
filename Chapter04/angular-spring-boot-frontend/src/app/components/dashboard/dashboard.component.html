@@ -54,7 +54,6 @@
         <button mat-stroked-button (click)="showClaims.set(true)">🏥 Claims Generator &amp; Cleaner</button>
         <button mat-stroked-button (click)="showSqsMonitor.set(true)">📬 SQS Monitor</button>
         <button mat-stroked-button (click)="showAthena.set(true)">🗄 Athena Client</button>
-        <button mat-stroked-button (click)="showGlue.set(true)">☁️ S3 / Glue Uploader</button>
       </div>
     }
 
@@ -114,12 +113,6 @@
       <app-athena
         [baseUrl]="microservicesOn() ? microUrls['athenaClient'] : currentUrl"
         (closed)="showAthena.set(false)" />
-    }
-
-    @if (showGlue()) {
-      <app-glue-uploader
-        [baseUrl]="currentUrl"
-        (closed)="showGlue.set(false)" />
     }
 
   </div>

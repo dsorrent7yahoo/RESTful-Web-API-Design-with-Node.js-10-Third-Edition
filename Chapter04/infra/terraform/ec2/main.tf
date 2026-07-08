@@ -87,7 +87,7 @@ resource "aws_iam_instance_profile" "ec2" {
 
 resource "aws_security_group" "ec2" {
   name        = "${var.name_prefix}-sg"
-  description = "Healthcare demo EC2 — web ports + SSH"
+  description = "Healthcare demo EC2 - web ports + SSH + API Gateway"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -143,6 +143,15 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # Django TypeScript frontend
+  ingress {
+    description = "Django TypeScript frontend (port 3005)"
+    from_port   = 3005
+    to_port     = 3005
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   # Django backend
   ingress {
     description = "Django backend API (port 4002)"
@@ -157,6 +166,15 @@ resource "aws_security_group" "ec2" {
     description = "API Gateway (port 8080)"
     from_port   = 8080
     to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Microservices (ports 4010-4015)
+  ingress {
+    description = "Microservices glue/claims/cleaner/sqs/athena/patients (4010-4015)"
+    from_port   = 4010
+    to_port     = 4015
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

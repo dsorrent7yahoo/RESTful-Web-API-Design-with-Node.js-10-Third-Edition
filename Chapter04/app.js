@@ -10,6 +10,9 @@ var flaskSwaggerUrl = process.env.FLASK_SWAGGER_URL || 'http://127.0.0.1:4001/ap
 
 var routes = require('./routes/index');
 var catalog = require('./routes/catalog');
+var auth = require('./routes/auth');
+var { seedDevUser } = require('./model/user');
+var { ensureConnected } = require('./model/item');
 
 var app = express();
 
@@ -39,6 +42,7 @@ app.use(function(req, res, next) {
 });
 
 app.use('/', routes);
+app.use('/', auth);
 app.use('/catalog', catalog);
 app.get('/openapi.json', function(req, res) {
   res.json(openApiSpec);
@@ -81,8 +85,15 @@ app.use(function(err, req, res, next) {
 
 if (require.main === module) {
   var port = process.env.PORT || 3000;
-  app.listen(port, function() {
+  app.listen(port, async function() {
     console.log('Chapter04 API listening on port ' + port);
+    console.log('Login page: http://localhost:' + port + '/login');
+    try {
+      await ensureConnected();
+      await seedDevUser();
+    } catch (e) {
+      console.warn('MongoDB not ready at startup — will retry on first request.');
+    }
   });
 }
 

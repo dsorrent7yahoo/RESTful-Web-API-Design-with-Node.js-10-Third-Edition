@@ -1,3 +1,4 @@
+# Databricks notebook source
 import csv
 import io
 import json
@@ -263,8 +264,8 @@ def find_all_medications(args):
     model.ensure_table_exists()
     top_n = int(args.get("topN", "0") or 0)
     limit_param = int(args.get("limit", "0") or 0)
-    limit = top_n if top_n > 0 else (limit_param if limit_param > 0 else 50)
-    start_key = json.loads(args["startKey"]) if args.get("startKey") else None
+    sort_order = (args.get("sort") or "").lower().strip()
+
     table = model.get_table()
 
     filters = []
@@ -275,14 +276,46 @@ def find_all_medications(args):
     if args.get("medicationId"):
         filters.append(Attr("code").eq(args["medicationId"]))
 
+    filter_expression = None
+    if filters:
+        filter_expression = filters[0]
+        for f in filters[1:]:
+            filter_expression = filter_expression & f
+
+    # When a sort is requested, fetch up to scanLimit rows then sort in-memory.
+    # scanLimit (default 5 000) caps total fetched rows so the response is fast.
+    if sort_order in ("asc", "desc"):
+        scan_limit = int(args.get("scanLimit", "0") or 0)
+        if scan_limit <= 0:
+            scan_limit = 5000
+        items = []
+        last_key = None
+        page_size = min(1000, scan_limit)
+        while len(items) < scan_limit:
+            page_kwargs = {"Limit": min(page_size, scan_limit - len(items))}
+            if filter_expression is not None:
+                page_kwargs["FilterExpression"] = filter_expression
+            if last_key:
+                page_kwargs["ExclusiveStartKey"] = last_key
+            page = table.scan(**page_kwargs)
+            items.extend(page.get("Items", []))
+            last_key = page.get("LastEvaluatedKey")
+            if not last_key:
+                break
+        reverse = sort_order == "desc"
+        items.sort(key=lambda row: (row.get("description") or "").lower(), reverse=reverse)
+        if top_n > 0:
+            items = items[:top_n]
+        return {"items": items, "lastEvaluatedKey": last_key, "total": len(items), "scanned": len(items)}
+
+    # Default paged scan (no sort)
+    limit = top_n if top_n > 0 else (limit_param if limit_param > 0 else 50)
+    start_key = json.loads(args["startKey"]) if args.get("startKey") else None
     scan_kwargs = {"Limit": limit}
     if start_key:
         scan_kwargs["ExclusiveStartKey"] = start_key
-    if filters:
-        expression = filters[0]
-        for filter_expression in filters[1:]:
-            expression = expression & filter_expression
-        scan_kwargs["FilterExpression"] = expression
+    if filter_expression is not None:
+        scan_kwargs["FilterExpression"] = filter_expression
 
     result = table.scan(**scan_kwargs)
     return {

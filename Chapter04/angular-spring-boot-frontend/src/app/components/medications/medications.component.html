@@ -6,16 +6,6 @@
     <button mat-raised-button color="primary" (click)="openCreate()">
       <mat-icon>add</mat-icon> Add
     </button>
-    <label class="upload-btn" title="Upload CSV">
-      <mat-icon>upload_file</mat-icon>
-      {{ uploadFile() ? uploadFile()!.name : 'Upload CSV' }}
-      <input type="file" accept=".csv" (change)="onUploadFileSelected($event)" hidden />
-    </label>
-    @if (uploadFile()) {
-      <button mat-raised-button color="accent" (click)="uploadCsv()" [disabled]="uploadLoading()">
-        <mat-icon>cloud_upload</mat-icon> Import
-      </button>
-    }
     <button mat-icon-button (click)="load()" title="Refresh"><mat-icon>refresh</mat-icon></button>
   </div>
 

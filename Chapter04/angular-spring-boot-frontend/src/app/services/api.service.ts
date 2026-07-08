@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 
 export const BACKEND_PRESETS: Record<string, string> = {
   cmdline: 'http://localhost:4003',
-  docker:  'http://localhost:4004',  // Docker backend — frontend at :5181, landing at :5180
+  docker:  'http://localhost:4003',
   aws:     'http://sorrentino-fargate-fhir-demo-alb-1996236158.us-east-1.elb.amazonaws.com',
 };
 
@@ -19,16 +19,12 @@ export const MICROSERVICE_URLS: Record<string, string> = {
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  baseUrl        = signal<string>(BACKEND_PRESETS['cmdline']);
-  selectedPreset = signal<string>('cmdline');
+  baseUrl = signal<string>(BACKEND_PRESETS['cmdline']);
   microservicesMode = signal<boolean>(true);
 
   constructor(private http: HttpClient) {}
 
-  setBaseUrl(url: string, presetKey?: string): void {
-    this.baseUrl.set(url);
-    if (presetKey) this.selectedPreset.set(presetKey);
-  }
+  setBaseUrl(url: string): void { this.baseUrl.set(url); }
 
   get<T>(path: string, params?: Record<string, string | number>): Observable<T> {
     let httpParams = new HttpParams();

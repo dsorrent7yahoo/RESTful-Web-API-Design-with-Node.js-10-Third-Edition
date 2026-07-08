@@ -9,16 +9,12 @@
 .vscode
 coherent-11-07-2022/dicom
 
-# Not needed inside the Flask container
+# Not needed inside the Flask/Django containers
 fhirstarters/
 spring-boot-react-frontend/
 dynamo-db-frontend/
 dynamo-db-backend/
 backend/
-test/
-model/
-modules/
-routes/
 
 # Exclude Terraform runtime artifacts (state, lock, providers) but keep .tf source
 infra/**/.terraform

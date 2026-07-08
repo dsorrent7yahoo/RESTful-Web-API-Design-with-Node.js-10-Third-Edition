@@ -145,6 +145,50 @@ const SERVICES = {
     healthPath:  '/health',
     description: 'Generates synthetic FHIR patient and encounter records',
   },
+
+  // ── RAG API ──────────────────────────────────────────────────────────────────
+  rag: {
+    label:       'Healthcare RAG API',
+    icon:        '🧠',
+    category:    'ai',
+    target:      process.env.RAG_URL          || 'http://localhost:4005',
+    healthPath:  '/health',
+    description: 'FastAPI · ClinicalBERT embeddings · Hybrid RAG (BM25 + dense) · GPT-4o / Bedrock / Ollama. Indexes medications, FDA labels, SNOMED, LOINC, and clinical guidelines.',
+    swaggerPath: '/docs',
+    launchUrl:   'http://localhost:4005/docs',
+  },
+
+  // ── Use-Case APIs ─────────────────────────────────────────────────────────────
+  'pharmacist-review': {
+    label:       'Pharmacist Review API',
+    icon:        '💊',
+    category:    'ai',
+    target:      process.env.PHARMACIST_URL   || 'http://localhost:4006',
+    healthPath:  '/health',
+    description: 'Drug-Related Problem (DRP) review using FDA drug label data. PCNE classification: Problem / Cause / Severity / Intervention.',
+    swaggerPath: '/docs',
+    launchUrl:   'http://localhost:4006/docs',
+  },
+  'ehr-query': {
+    label:       'EHR Natural Language Query API',
+    icon:        '🔍',
+    category:    'ai',
+    target:      process.env.EHR_QUERY_URL    || 'http://localhost:4007',
+    healthPath:  '/health',
+    description: 'Translates plain-English questions into DynamoDB PartiQL SELECT statements over the medications, conditions, and observations tables.',
+    swaggerPath: '/docs',
+    launchUrl:   'http://localhost:4007/docs',
+  },
+  'diagnosis-support': {
+    label:       'Diagnosis Support API',
+    icon:        '🩺',
+    category:    'ai',
+    target:      process.env.DIAGNOSIS_URL    || 'http://localhost:4008',
+    healthPath:  '/health',
+    description: 'GARMLE-G evidence-based differential diagnosis with ICD-10/SNOMED codes and clinical practice guideline citations.',
+    swaggerPath: '/docs',
+    launchUrl:   'http://localhost:4008/docs',
+  },
 };
 
 module.exports = { SERVICES };

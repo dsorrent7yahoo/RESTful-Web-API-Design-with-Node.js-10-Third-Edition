@@ -1,14 +1,22 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "Flask DynamoDB Medical Records App",
+    "title": "Django DynamoDB Medical Records API",
     "version": "1.0.0",
-    "description": "REST endpoints for the Flask DynamoDB backend (Chapter04/flask-dynamo-db-backend). Includes JWT authentication."
+    "description": "REST endpoints for the Django REST Framework backend (Chapter04/django-back-end). Medications CRUD, generic CSV → DynamoDB upload, DynamoDB → S3 export, AWS Glue Data Catalog registration, and JWT authentication.\n\n**Related service:** [Healthcare RAG API → Clinical Decision Support](/rag-openapi.json) — Retrieval-Augmented Generation powered by ClinicalBERT and AWS Bedrock Claude Sonnet 4.6 (port 4005)."
+  },
+  "externalDocs": {
+    "description": "Healthcare RAG API — Interactive Swagger UI (port 4005)",
+    "url": "http://localhost:4005/docs"
   },
   "servers": [
     {
-      "url": "http://localhost:4001"
+      "url": "http://localhost:4002",
+      "description": "Local Django backend"
     }
+  ],
+  "security": [
+    { "BearerAuth": [] }
   ],
   "tags": [
     {
@@ -157,6 +165,17 @@
               "type": "string"
             },
             "description": "Optional exact match on medication id (stored as code)"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "example": "asc"
+            },
+            "description": "Sort all results by description alphabetically. 'asc' = A→Z, 'desc' = Z→A. Performs a full table scan; use with topN to cap results."
           }
         ],
         "responses": {
@@ -1298,6 +1317,14 @@
     }
   },
   "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter the JWT token from POST /auth/login (accessToken field). Example: eyJhbGci..."
+      }
+    },
     "schemas": {
       "PatientMedicationSummary": {
         "type": "object",

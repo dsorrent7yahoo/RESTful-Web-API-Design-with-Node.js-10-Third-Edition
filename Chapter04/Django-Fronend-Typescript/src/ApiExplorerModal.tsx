@@ -1,5 +1,7 @@
+import { useState, useMemo } from 'preact/hooks';
 import type { JSX } from 'preact';
-import { ApiOption } from './types';
+import { ApiOption, MedicationOption, PatientDetail } from './types';
+import { PickerModal, PickerColumn } from './PickerModal';
 
 interface ApiExplorerModalProps {
   show: boolean;
@@ -21,6 +23,10 @@ interface ApiExplorerModalProps {
   setSelectedId: (v: string) => void;
   selected: ApiOption;
   API_OPTIONS: ApiOption[];
+  medicationOptions: MedicationOption[];
+  patientOptions: string[];
+  codeOptions: string[];
+  patientDetails: PatientDetail[];
   medicationId: string;
   setMedicationId: (v: string) => void;
   medicationPathId: string;
@@ -39,6 +45,8 @@ interface ApiExplorerModalProps {
   setQueryPatientId: (v: string) => void;
   queryMedicationId: string;
   setQueryMedicationId: (v: string) => void;
+  sortAsc: boolean;
+  setSortAsc: (v: boolean) => void;
   uploadTableName: string;
   setUploadTableName: (v: string) => void;
   selectedFileName: string;
@@ -62,6 +70,7 @@ export default function ApiExplorerModal({
   loginLoading, loginStatus, handleLogin,
   baseUrl, handleBaseUrlChange,
   selectedId, setSelectedId, selected, API_OPTIONS,
+  medicationOptions, patientOptions, codeOptions, patientDetails,
   medicationId, setMedicationId,
   medicationPathId, setMedicationPathId,
   patient, setPatient,
@@ -71,6 +80,7 @@ export default function ApiExplorerModal({
   queryId, setQueryId,
   queryPatientId, setQueryPatientId,
   queryMedicationId, setQueryMedicationId,
+  sortAsc, setSortAsc,
   uploadTableName, setUploadTableName,
   selectedFileName, handleFileSelection,
   bodyText, setBodyText,
@@ -80,6 +90,108 @@ export default function ApiExplorerModal({
 }: ApiExplorerModalProps) {
   if (!show) return null;
 
+  // ---- Picker state --------------------------------------------------------
+  const [activePicker, setActivePicker] = useState<{
+    title: string;
+    columns: PickerColumn[];
+    rows: Record<string, string>[];
+    onSelect: (row: Record<string, string>) => void;
+  } | null>(null);
+
+  /** Strip leading dosage prefixes so drugs sort by name, not by number. */
+  function drugSortKey(desc: string): string {
+    return desc
+      .replace(/^NDA\w*\s+/i, '')
+      .replace(/^\d+(\.\d+)?\s+(HR|ML|ACTUAT|MG|MCG|UNT)\s+/i, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  const patientRows = useMemo<Record<string, string>[]>(() => {
+    const src = patientDetails.length > 0
+      ? patientDetails
+      : patientOptions.map(id => ({ id, first: '', last: '' }));
+    return src
+      .map(p => ({ id: p.id, last: p.last, first: p.first }))
+      .sort((a, b) => a.last.localeCompare(b.last) || a.first.localeCompare(b.first));
+  }, [patientDetails, patientOptions]);
+
+  const medRows = useMemo<Record<string, string>[]>(() =>
+    [...medicationOptions]
+      .sort((a, b) => drugSortKey(a.label.split(' — ')[1] ?? a.label)
+        .localeCompare(drugSortKey(b.label.split(' — ')[1] ?? b.label)))
+      .map(o => ({ id: o.value, description: o.label.split(' — ').slice(1).join(' — ') || o.label })),
+  [medicationOptions]);
+
+  const codeRows = useMemo<Record<string, string>[]>(() =>
+    [...codeOptions].sort().map(c => ({ code: c })),
+  [codeOptions]);
+
+  function openPatientPicker(setter: (id: string) => void) {
+    setActivePicker({
+      title: '👤 Select Patient  —  sorted by Last, First',
+      columns: [
+        { key: 'last',  label: 'Last Name',  maxWidth: '160px' },
+        { key: 'first', label: 'First Name', maxWidth: '160px' },
+        { key: 'id',    label: 'Patient ID', mono: true, maxWidth: '280px' },
+      ],
+      rows: patientRows,
+      onSelect: row => setter(row.id),
+    });
+  }
+
+  function openMedPicker(setter: (id: string) => void) {
+    setActivePicker({
+      title: '💊 Select Medication  —  sorted by drug name',
+      columns: [
+        { key: 'description', label: 'Medication Name', maxWidth: '380px' },
+        { key: 'id',          label: 'Medication ID',   mono: true, maxWidth: '280px' },
+      ],
+      rows: medRows,
+      onSelect: row => setter(row.id),
+    });
+  }
+
+  function openCodePicker(setter: (code: string) => void) {
+    setActivePicker({
+      title: '🔢 Select Drug Code',
+      columns: [{ key: 'code', label: 'Code', mono: true }],
+      rows: codeRows,
+      onSelect: row => setter(row.code),
+    });
+  }
+
+  /** Renders an input pre-filled with `value` and a browse button that opens the given picker. */
+  function PickerField({ label, value, onChange, onBrowse, placeholder }: {
+    label: string;
+    value: string;
+    onChange: (v: string) => void;
+    onBrowse: () => void;
+    placeholder?: string;
+  }) {
+    return (
+      <label>
+        {label}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <input
+            value={value}
+            onChange={e => onChange(e.currentTarget.value)}
+            placeholder={placeholder}
+            style={{ flex: 1, minWidth: 0 }}
+          />
+          <button
+            type="button"
+            onClick={onBrowse}
+            title="Browse & select"
+            style={{ flexShrink: 0, padding: '8px 12px', background: '#0f766e', color: '#fff',
+                     border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px',
+                     lineHeight: 1, whiteSpace: 'nowrap' }}
+          >🔍</button>
+        </div>
+      </label>
+    );
+  }
+
   const MED_IDS = ['getAll','getById','getByPatient','getByCode','getByMedicationPath','getPatientsMulti','postMedication','putMedication','deleteMedication','uploadMedCsv','listTables'];
   const FLASK_UPLOAD_IDS = ['uploadFile','uploadJson'];
   const S3_IDS = ['listBuckets','exportS3'];
@@ -88,6 +200,16 @@ export default function ApiExplorerModal({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
+      {activePicker && (
+        <PickerModal
+          show={true}
+          onClose={() => setActivePicker(null)}
+          title={activePicker.title}
+          columns={activePicker.columns}
+          rows={activePicker.rows}
+          onSelect={activePicker.onSelect}
+        />
+      )}
       <div className="modal-card" onClick={(e) => e.stopPropagation()}
         style={{ maxWidth: '760px', width: '95vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <div className="modal-header">
@@ -175,28 +297,32 @@ export default function ApiExplorerModal({
             </label>
 
             {selected.needsId && (
-              <label>
-                Medication ID
-                <input value={medicationId} onChange={(e) => setMedicationId(e.currentTarget.value)} placeholder="e.g. patient-encounter-code" />
-              </label>
+              <PickerField label="Medication ID"
+                value={medicationId} onChange={setMedicationId}
+                onBrowse={() => openMedPicker(setMedicationId)}
+                placeholder="Select or type a medication ID"
+              />
             )}
             {selected.needsMedicationPathId && (
-              <label>
-                Medication Path ID
-                <input value={medicationPathId} onChange={(e) => setMedicationPathId(e.currentTarget.value)} placeholder="medicationId for path" />
-              </label>
+              <PickerField label="Medication Path ID"
+                value={medicationPathId} onChange={setMedicationPathId}
+                onBrowse={() => openMedPicker(setMedicationPathId)}
+                placeholder="Select or type a medication ID"
+              />
             )}
             {selected.needsPatient && (
-              <label>
-                Patient
-                <input value={patient} onChange={(e) => setPatient(e.currentTarget.value)} placeholder="patient ID" />
-              </label>
+              <PickerField label="Patient"
+                value={patient} onChange={setPatient}
+                onBrowse={() => openPatientPicker(setPatient)}
+                placeholder="Select or type a patient ID"
+              />
             )}
             {selected.needsCode && (
-              <label>
-                Code
-                <input value={code} onChange={(e) => setCode(e.currentTarget.value)} placeholder="medication code" />
-              </label>
+              <PickerField label="Drug / Code"
+                value={code} onChange={setCode}
+                onBrowse={() => openCodePicker(setCode)}
+                placeholder="Select or type a medication code"
+              />
             )}
             {selected.needsDatabase && (
               <label>
@@ -213,8 +339,25 @@ export default function ApiExplorerModal({
             {selected.supportsQueryFilters && (
               <>
                 <label>Filter: ID <input value={queryId} onChange={(e) => setQueryId(e.currentTarget.value)} /></label>
-                <label>Filter: Patient ID <input value={queryPatientId} onChange={(e) => setQueryPatientId(e.currentTarget.value)} /></label>
-                <label>Filter: Medication ID <input value={queryMedicationId} onChange={(e) => setQueryMedicationId(e.currentTarget.value)} /></label>
+                <PickerField label="Filter: Patient ID"
+                  value={queryPatientId} onChange={setQueryPatientId}
+                  onBrowse={() => openPatientPicker(setQueryPatientId)}
+                  placeholder="— any —"
+                />
+                <PickerField label="Filter: Medication ID"
+                  value={queryMedicationId} onChange={setQueryMedicationId}
+                  onBrowse={() => openMedPicker(setQueryMedicationId)}
+                  placeholder="— any —"
+                />
+                <label style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={sortAsc}
+                    onChange={(e) => setSortAsc(e.currentTarget.checked)}
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  Sort A → Z (alphabetical by description)
+                </label>
               </>
             )}
             {(selected.needsFileUpload) && (

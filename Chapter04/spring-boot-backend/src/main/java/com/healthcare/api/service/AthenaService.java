@@ -1,40 +1,17 @@
 package com.healthcare.api.service;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.healthcare.api.config.AppProperties;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import software.amazon.awssdk.core.SdkBytes;
+import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.athena.AthenaClient;
-import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
-import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
-import software.amazon.awssdk.services.athena.model.Datum;
-import software.amazon.awssdk.services.athena.model.GetQueryExecutionRequest;
-import software.amazon.awssdk.services.athena.model.GetQueryExecutionResponse;
-import software.amazon.awssdk.services.athena.model.GetQueryResultsRequest;
-import software.amazon.awssdk.services.athena.model.GetQueryResultsResponse;
-import software.amazon.awssdk.services.athena.model.QueryExecutionContext;
-import software.amazon.awssdk.services.athena.model.QueryExecutionState;
-import software.amazon.awssdk.services.athena.model.QueryExecutionStatistics;
-import software.amazon.awssdk.services.athena.model.ResultConfiguration;
-import software.amazon.awssdk.services.athena.model.Row;
-import software.amazon.awssdk.services.athena.model.StartQueryExecutionRequest;
-import software.amazon.awssdk.services.athena.model.StartQueryExecutionResponse;
+import software.amazon.awssdk.services.athena.model.*;
 import software.amazon.awssdk.services.glue.GlueClient;
-import software.amazon.awssdk.services.glue.model.GetDatabasesRequest;
-import software.amazon.awssdk.services.glue.model.GetDatabasesResponse;
-import software.amazon.awssdk.services.glue.model.GetTablesRequest;
-import software.amazon.awssdk.services.glue.model.GetTablesResponse;
+import software.amazon.awssdk.services.glue.model.*;
+
+import java.time.Instant;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -44,10 +21,10 @@ public class AthenaService {
     private final AthenaClient athena;
     private final GlueClient glue;
     private final AppProperties props;
-    private final BedrockRuntimeClient bedrock;
 
     public Map<String, Object> query(String sql, String database) {
         String db = database != null ? database : props.getAws().getAthena().getDatabase();
+        sql = normaliseSql(sql);
         String outputLocation = "s3://" + props.getAws().getS3().getStagingBucket()
             + "/" + props.getAws().getS3().getAthenaOutputPrefix();
         long start = System.currentTimeMillis();
@@ -121,13 +98,26 @@ public class AthenaService {
         for (software.amazon.awssdk.services.glue.model.Table table : resp.tableList()) {
             List<Map<String, String>> cols = new ArrayList<>();
             if (table.storageDescriptor() != null) {
-                for (software.amazon.awssdk.services.glue.model.Column col : table.storageDescriptor().columns()) {
+                for (Column col : table.storageDescriptor().columns()) {
                     cols.add(Map.of("name", col.name(), "type", col.type() != null ? col.type() : ""));
                 }
             }
             schema.put(table.name(), cols);
         }
         return Map.of("database", db, "schema", schema);
+    }
+
+    /** Replace LLM-hallucinated column names with their real Athena/Glue equivalents. */
+    private static String normaliseSql(String sql) {
+        if (sql == null) return null;
+        // medications table
+        sql = sql.replaceAll("(?i)\\bmedication_name\\b", "description");
+        sql = sql.replaceAll("(?i)\\bdrug_name\\b",       "description");
+        sql = sql.replaceAll("(?i)\\bmed_name\\b",        "description");
+        // qualified patient_id references first, then bare
+        sql = sql.replaceAll("(?i)\\bmedications\\.patient_id\\b", "medications.patient");
+        sql = sql.replaceAll("(?i)\\bclaims\\.patient_id\\b",      "claims.patient");
+        return sql;
     }
 
     private void waitForQuery(String queryId) {
@@ -144,67 +134,5 @@ public class AthenaService {
             try { Thread.sleep(500); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
         }
         throw new RuntimeException("Athena query timed out");
-    }
-
-    public Map<String, Object> generateSql(String prompt, String database) {
-        String db = database != null ? database : props.getAws().getGlue().getDatabase();
-        // Build schema context from Glue
-        StringBuilder schemaCtx = new StringBuilder();
-        try {
-            for (software.amazon.awssdk.services.glue.model.Table t :
-                    glue.getTables(software.amazon.awssdk.services.glue.model.GetTablesRequest
-                            .builder().databaseName(db).build()).tableList()) {
-                String cols = t.storageDescriptor() == null ? "" :
-                        t.storageDescriptor().columns().stream()
-                                .map(c -> c.name() + " " + c.type())
-                                .collect(Collectors.joining(", "));
-                schemaCtx.append("  ").append(t.name()).append("(").append(cols).append(")\n");
-            }
-        } catch (Exception e) {
-            log.warn("Could not fetch schema for Bedrock prompt: {}", e.getMessage());
-        }
-
-        String sysMsg = "You are an expert Amazon Athena SQL generator (Presto SQL dialect).\n" +
-                "Database: " + db + "\nAvailable tables:\n" + schemaCtx +
-                "Rules:\n- Return ONLY the SQL, no explanation, no markdown.\n" +
-                "- Use Athena/Presto syntax.\n- Always LIMIT unless pure aggregation.\n";
-
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            Map<String, Object> payload = Map.of(
-                "system", List.of(Map.of("text", sysMsg)),
-                "messages", List.of(Map.of("role", "user",
-                        "content", List.of(Map.of("text", prompt)))),
-                "inferenceConfig", Map.of("maxTokens", 1024, "temperature", 0.1)
-            );
-            String jsonBody = mapper.writeValueAsString(payload);
-            String modelId = props.getBedrock().getSqlModelId();
-
-            var response = bedrock.invokeModel(InvokeModelRequest.builder()
-                    .modelId(modelId)
-                    .body(SdkBytes.fromUtf8String(jsonBody))
-                    .contentType("application/json")
-                    .accept("application/json")
-                    .build());
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> result = mapper.readValue(
-                    response.body().asUtf8String(), Map.class);
-            @SuppressWarnings("unchecked")
-            Map<String, Object> output = (Map<String, Object>) result.get("output");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> message = (Map<String, Object>) output.get("message");
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> content = (List<Map<String, Object>>) message.get("content");
-            String sql = (String) content.get(0).get("text");
-            // Strip markdown fences
-            sql = Arrays.stream(sql.split("\n"))
-                    .filter(l -> !l.trim().startsWith("```"))
-                    .collect(Collectors.joining("\n")).strip();
-
-            return Map.of("status", "ok", "sql", sql, "model", modelId, "database", db);
-        } catch (Exception e) {
-            throw new RuntimeException("Bedrock SQL generation failed: " + e.getMessage(), e);
-        }
     }
 }

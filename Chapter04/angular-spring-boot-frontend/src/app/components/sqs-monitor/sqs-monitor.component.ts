@@ -1,20 +1,19 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 @Component({
   selector: 'app-sqs-monitor',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTabsModule, MatSlideToggleModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatTabsModule],
   templateUrl: './sqs-monitor.component.html',
   styleUrl: './sqs-monitor.component.scss',
 })
-export class SqsMonitorComponent implements OnInit, OnDestroy {
+export class SqsMonitorComponent implements OnInit {
   @Input() baseUrl = 'http://localhost:4013';
   @Output() closed = new EventEmitter<void>();
 
@@ -23,14 +22,10 @@ export class SqsMonitorComponent implements OnInit, OnDestroy {
   emailLog  = signal<any[]>([]);
   messages  = signal<any[]>([]);
   loading   = signal(false);
-  autoRefresh = signal(false);
-  private refreshTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void { this.refresh(); }
-
-  ngOnDestroy(): void { this.stopAutoRefresh(); }
 
   refresh(): void {
     this.loading.set(true);
@@ -52,18 +47,5 @@ export class SqsMonitorComponent implements OnInit, OnDestroy {
     this.http.delete(`${this.baseUrl}/sqs/messages`).subscribe({
       next: () => this.refresh(),
     });
-  }
-
-  toggleAutoRefresh(enabled: boolean): void {
-    this.autoRefresh.set(enabled);
-    if (enabled) {
-      this.refreshTimer = setInterval(() => this.refresh(), 5000);
-    } else {
-      this.stopAutoRefresh();
-    }
-  }
-
-  private stopAutoRefresh(): void {
-    if (this.refreshTimer) { clearInterval(this.refreshTimer); this.refreshTimer = null; }
   }
 }

@@ -18,7 +18,6 @@ import { ApiExplorerComponent } from '../api-explorer/api-explorer.component';
 import { SqsMonitorComponent } from '../sqs-monitor/sqs-monitor.component';
 import { ClaimsComponent } from '../claims/claims.component';
 import { AthenaComponent } from '../athena/athena.component';
-import { GlueUploaderComponent } from '../glue-uploader/glue-uploader.component';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,7 +28,7 @@ import { GlueUploaderComponent } from '../glue-uploader/glue-uploader.component'
     MatTabsModule, MatCardModule, MatSelectModule,
     MatFormFieldModule, MatChipsModule, MatDialogModule,
     MedicationsComponent, ApiExplorerComponent,
-    SqsMonitorComponent, ClaimsComponent, AthenaComponent, GlueUploaderComponent,
+    SqsMonitorComponent, ClaimsComponent, AthenaComponent,
   ],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.scss',
@@ -44,21 +43,17 @@ export class DashboardComponent implements OnInit {
   showSqsMonitor  = signal(false);
   showClaims      = signal(false);
   showAthena      = signal(false);
-  showGlue        = signal(false);
 
   backendPresets = BACKEND_PRESETS;
   presetKeys = Object.keys(BACKEND_PRESETS);
   microUrls  = MICROSERVICE_URLS;
-  serviceHealth: Record<string, 'ok' | 'error' | 'loading' | undefined> = {};
+  serviceHealth: Record<string, 'ok' | 'error' | 'loading'> = {};
 
   constructor(
     public auth: AuthService,
     public api: ApiService,
     private http: HttpClient,
-  ) {
-    // Mirror whichever preset key was chosen on the login page
-    this.selectedBackend = signal<string>(api.selectedPreset());
-  }
+  ) {}
 
   ngOnInit(): void {
     this.checkHealth();

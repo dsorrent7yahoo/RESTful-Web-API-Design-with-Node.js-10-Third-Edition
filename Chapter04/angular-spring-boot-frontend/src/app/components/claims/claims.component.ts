@@ -56,15 +56,6 @@ export class ClaimsComponent implements OnInit {
     });
   }
 
-  processAll(): void {
-    if (!confirm('Clean all CSV files and delete originals?')) return;
-    this.loading.set(true);
-    this.http.post<any>(`${this.cleanerUrl}/claims/process-all`, {}).subscribe({
-      next: res => { this.cleanResult.set(res); this.loading.set(false); this.loadFiles(); },
-      error: err => { this.cleanResult.set({ error: err.error }); this.loading.set(false); },
-    });
-  }
-
   formatSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';

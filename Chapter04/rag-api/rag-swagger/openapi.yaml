@@ -1,0 +1,636 @@
+openapi: "3.1.0"
+info:
+  title: Healthcare RAG API
+  version: 1.0.0
+  description: "## Retrieval-Augmented Generation for Clinical Medication Intelligence\n\nThis API indexes five healthcare corpora and answers clinical questions grounded in retrieved evidence, with source citations and hallucination detection.\n\n### Corpus Shards\n| Shard | Source | DynamoDB Table |\n|---|---|---|\n| `medications` | Synthea Coherent dataset | `medications` |\n| `fda-labels` | FDA OpenFDA API | derived from `medications` |\n| `snomed` | UMLS Metathesaurus | `conditions` |\n| `loinc` | Regenstrief LOINC table | `observations` |\n| `guidelines` | WHO / NIH PDFs | external URL |\n\n### Authentication\nAll `/rag/*` endpoints require `Authorization: Bearer <jwt>`. Obtain a token from `POST /login` on the Flask backend (port 4001). `GET /health` is open."
+  contact:
+    name: Healthcare RAG API
+    url: "http://localhost:4005/docs"
+  license:
+    name: MIT
+paths:
+  /rag/query:
+    post:
+      tags:
+        - RAG
+      summary: Clinical RAG Query
+      operationId: rag_query_rag_query_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RAGQueryRequest"
+            examples:
+              standard:
+                summary: Standard drug interaction query
+                value:
+                  question: What are the drug interactions for Ibuprofen in hypertension?
+                  top_k: 5
+                  index_filter: fda-labels
+                  mode: standard
+              patient_aware:
+                summary: PACE-RAG patient-aware query
+                value:
+                  question: What medications should be avoided for this patient?
+                  patient_id: 8b0484cd-3dbd-8b8d-1b72-a32f74a5a846
+                  mode: copilot
+                  top_k: 5
+              sql_mode:
+                summary: Natural language to DynamoDB PartiQL
+                value:
+                  question: Find patients prescribed Ibuprofen more than 3 times
+                  mode: sql
+                  top_k: 3
+              diagnosis_mode:
+                summary: CPG-grounded differential diagnosis
+                value:
+                  question: "Patient has BMI 32, fasting glucose 6.2 mmol/L, hypertension"
+                  mode: diagnosis
+                  top_k: 5
+                  index_filter: guidelines
+        required: true
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGQueryResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Ask a clinical question answered from indexed corpora.\n\n**Modes:** `standard` (direct answer) · `copilot` (PCNE DRP report, arXiv:2402.01741) · `sql` (PartiQL generation, arXiv:2603.05569) · `diagnosis` (CPG-grounded, arXiv:2506.21615)\n\nSet `patient_id` to load the patient's active medications, conditions, and observations from DynamoDB for PACE-RAG patient-aware retrieval (arXiv:2603.17356)."
+  /rag/index/medications:
+    post:
+      tags:
+        - RAG
+      summary: Index Medications Table
+      operationId: index_medications_rag_index_medications_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexMedicationsRequest"
+        required: true
+      responses:
+        202:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexJobResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Scans DynamoDB `medications` table, embeds each record with ClinicalBERT (768-dim), and upserts into the `medications` vector shard. Returns 202 immediately. Poll `GET /rag/jobs/{job_id}`."
+  /rag/index/fda-labels:
+    post:
+      tags:
+        - RAG
+      summary: Index FDA Drug Labels
+      operationId: index_fda_rag_index_fda_labels_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexFDARequest"
+        required: true
+      responses:
+        202:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexJobResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Fetches drug labels from `api.fda.gov/drug/label.json` for every unique drug in the medications table. Indexes 8 sections per label: indications, warnings, drug_interactions, dosage, contraindications, adverse_reactions, precautions, boxed_warning."
+  /rag/index/snomed:
+    post:
+      tags:
+        - RAG
+      summary: Index SNOMED CT Conditions
+      operationId: index_snomed_rag_index_snomed_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexSNOMEDRequest"
+        required: true
+      responses:
+        202:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexJobResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Scans `conditions` table for SNOMED codes, fetches concept names from UMLS Metathesaurus, and indexes into the `snomed` shard. Requires `UMLS_API_KEY`."
+  /rag/index/loinc:
+    post:
+      tags:
+        - RAG
+      summary: Index LOINC Observation Codes
+      operationId: index_loinc_rag_index_loinc_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexLOINCRequest"
+        required: true
+      responses:
+        202:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexJobResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Indexes LOINC codes with clinical names, units, and reference ranges. 16 common codes (vitals, CBC, metabolic panel) are always included from a built-in table. Pass `loinc_csv_path` for the full LOINC table."
+  /rag/index/guidelines:
+    post:
+      tags:
+        - RAG
+      summary: Index Clinical Practice Guideline
+      operationId: index_guideline_rag_index_guidelines_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IndexGuidelineRequest"
+        required: true
+      responses:
+        202:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexJobResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      security:
+        - HTTPBearer: []
+      description: "Downloads a PDF or HTML page, extracts text, chunks with 400-word sliding window (50-word overlap), and indexes into the `guidelines` shard. Implements GARMLE-G retrieval pattern (arXiv:2506.21615)."
+  /rag/index/status:
+    get:
+      tags:
+        - RAG
+      summary: Vector Index Statistics
+      operationId: index_status_rag_index_status_get
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IndexStatusResponse"
+      security:
+        - HTTPBearer: []
+      description: "Returns per-shard document counts, last-indexed timestamps, total docs, embedding backend, and vector dimension."
+  /rag/jobs/{job_id}:
+    get:
+      tags:
+        - RAG
+      summary: Indexing Job Status
+      operationId: job_status_rag_jobs__job_id__get
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            title: Job Id
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      description: "Polls a background indexing job. Status: `queued` → `running` → `done` | `error`."
+  /rag/index:
+    delete:
+      tags:
+        - RAG
+      summary: Delete Vector Index (Admin)
+      operationId: delete_index_rag_index_delete
+      security:
+        - HTTPBearer: []
+      parameters:
+        - name: shard
+          in: query
+          required: false
+          schema:
+            anyOf:
+              - type: string
+              - type: null
+            title: Shard
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+        422:
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HTTPValidationError"
+      description: "Deletes all documents or a single shard. Requires `role: admin` in JWT payload. Shard values: `medications` · `fda-labels` · `snomed` · `loinc` · `guidelines`"
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Service Health Check
+      operationId: health_health_get
+      responses:
+        200:
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+      description: Returns service status and active backend config. No JWT required.
+components:
+  schemas:
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: "#/components/schemas/ValidationError"
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    IndexFDARequest:
+      properties:
+        table_name:
+          type: string
+          title: Table Name
+          default: medications
+      type: object
+      title: IndexFDARequest
+    IndexGuidelineRequest:
+      properties:
+        url:
+          type: string
+          title: Url
+        source_label:
+          type: string
+          title: Source Label
+        chunk_size:
+          type: integer
+          maximum: 1000.0
+          minimum: 100.0
+          title: Chunk Size
+          default: 400
+        overlap:
+          type: integer
+          maximum: 200.0
+          minimum: 0.0
+          title: Overlap
+          default: 50
+      type: object
+      required:
+        - url
+        - source_label
+      title: IndexGuidelineRequest
+    IndexJobResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        job_id:
+          type: string
+          title: Job Id
+        message:
+          type: string
+          title: Message
+      type: object
+      required:
+        - status
+        - job_id
+        - message
+      title: IndexJobResponse
+    IndexLOINCRequest:
+      properties:
+        table_name:
+          type: string
+          title: Table Name
+          default: observations
+        loinc_csv_path:
+          anyOf:
+            - type: string
+            - type: null
+          title: Loinc Csv Path
+      type: object
+      title: IndexLOINCRequest
+    IndexMedicationsRequest:
+      properties:
+        table_name:
+          type: string
+          title: Table Name
+          default: medications
+        batch_size:
+          type: integer
+          maximum: 500.0
+          minimum: 1.0
+          title: Batch Size
+          default: 100
+        patient_id:
+          anyOf:
+            - type: string
+            - type: null
+          title: Patient Id
+      type: object
+      title: IndexMedicationsRequest
+    IndexSNOMEDRequest:
+      properties:
+        table_name:
+          type: string
+          title: Table Name
+          default: conditions
+        umls_api_key:
+          anyOf:
+            - type: string
+            - type: null
+          title: Umls Api Key
+      type: object
+      title: IndexSNOMEDRequest
+    IndexStatusResponse:
+      properties:
+        backend:
+          type: string
+          title: Backend
+        shards:
+          additionalProperties:
+            $ref: "#/components/schemas/ShardStatus"
+          type: object
+          title: Shards
+        total_docs:
+          type: integer
+          title: Total Docs
+        embedder:
+          type: string
+          title: Embedder
+        dimension:
+          type: integer
+          title: Dimension
+      type: object
+      required:
+        - backend
+        - shards
+        - total_docs
+        - embedder
+        - dimension
+      title: IndexStatusResponse
+    JobStatusResponse:
+      properties:
+        job_id:
+          type: string
+          title: Job Id
+        shard:
+          type: string
+          title: Shard
+        status:
+          type: string
+          enum:
+            - queued
+            - running
+            - done
+            - error
+          title: Status
+        documents_done:
+          type: integer
+          title: Documents Done
+        documents_total:
+          type: integer
+          title: Documents Total
+        error:
+          anyOf:
+            - type: string
+            - type: null
+          title: Error
+        started_at:
+          anyOf:
+            - type: string
+            - type: null
+          title: Started At
+        finished_at:
+          anyOf:
+            - type: string
+            - type: null
+          title: Finished At
+      type: object
+      required:
+        - job_id
+        - shard
+        - status
+        - documents_done
+        - documents_total
+        - error
+        - started_at
+        - finished_at
+      title: JobStatusResponse
+    RAGQueryRequest:
+      properties:
+        question:
+          type: string
+          minLength: 3
+          title: Question
+        patient_id:
+          anyOf:
+            - type: string
+            - type: null
+          title: Patient Id
+        mode:
+          type: string
+          enum:
+            - standard
+            - copilot
+            - sql
+            - diagnosis
+          title: Mode
+          default: standard
+        top_k:
+          type: integer
+          maximum: 20.0
+          minimum: 1.0
+          title: Top K
+          default: 5
+        index_filter:
+          anyOf:
+            - type: string
+            - type: null
+          title: Index Filter
+      type: object
+      required:
+        - question
+      title: RAGQueryRequest
+    RAGQueryResponse:
+      properties:
+        answer:
+          type: string
+          title: Answer
+        sources:
+          items:
+            $ref: "#/components/schemas/SourcePassage"
+          type: array
+          title: Sources
+        mode:
+          type: string
+          title: Mode
+        patient_id:
+          anyOf:
+            - type: string
+            - type: null
+          title: Patient Id
+        tokens:
+          $ref: "#/components/schemas/TokenUsage"
+        latency_ms:
+          type: integer
+          title: Latency Ms
+      type: object
+      required:
+        - answer
+        - sources
+        - mode
+        - patient_id
+        - tokens
+        - latency_ms
+      title: RAGQueryResponse
+    ShardStatus:
+      properties:
+        doc_count:
+          type: integer
+          title: Doc Count
+        last_indexed:
+          anyOf:
+            - type: string
+            - type: null
+          title: Last Indexed
+      type: object
+      required:
+        - doc_count
+        - last_indexed
+      title: ShardStatus
+    SourcePassage:
+      properties:
+        id:
+          type: string
+          title: Id
+        text:
+          type: string
+          title: Text
+        source:
+          type: string
+          title: Source
+        score:
+          type: number
+          title: Score
+      type: object
+      required:
+        - id
+        - text
+        - source
+        - score
+      title: SourcePassage
+    TokenUsage:
+      properties:
+        prompt:
+          type: integer
+          title: Prompt
+        completion:
+          type: integer
+          title: Completion
+        total:
+          type: integer
+          title: Total
+      type: object
+      required:
+        - prompt
+        - completion
+        - total
+      title: TokenUsage
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError
+  securitySchemes:
+    HTTPBearer:
+      type: http
+      scheme: bearer
+servers:
+  - url: "http://localhost:4005"
+    description: Local dev
+  - url: "http://localhost:8080"
+    description: API Gateway proxy
+tags:
+  - name: RAG
+    description: Query and corpus management
+  - name: Health
+    description: Health check (no auth required)

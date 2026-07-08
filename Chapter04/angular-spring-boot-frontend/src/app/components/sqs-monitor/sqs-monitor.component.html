@@ -3,8 +3,6 @@
     <div class="modal-header">
       <span>📬 SQS Lambda Monitor</span>
       <div class="header-actions">
-        <mat-slide-toggle [checked]="autoRefresh()" (change)="toggleAutoRefresh($event.checked)"
-                          title="Auto-refresh every 5s">Auto</mat-slide-toggle>
         <button mat-icon-button (click)="refresh()"><mat-icon>refresh</mat-icon></button>
         <button mat-icon-button (click)="closed.emit()"><mat-icon>close</mat-icon></button>
       </div>

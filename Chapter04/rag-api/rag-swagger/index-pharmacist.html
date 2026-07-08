@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Pharmacist Review API — Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css"/>
+  <style>
+    body { margin:0; background:#fafafa; }
+    .topbar { background:#c0392b !important; }
+    #banner {
+      background:#c0392b; color:#fff; padding:10px 20px;
+      font-family:sans-serif; font-size:13px;
+      display:flex; align-items:center; gap:20px;
+    }
+    #banner strong { font-size:16px; }
+    #banner a { color:#aed6f1; text-decoration:none; }
+    #banner .badge { background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:4px; }
+  </style>
+</head>
+<body>
+  <div id="banner">
+    <strong>&#x1F3E5; Pharmacist Review API</strong>
+    <span class="badge">FastAPI · OpenAPI 3.1 · port 4006</span>
+    <span>Drug-Related Problem review powered by FDA drug labels</span>
+    <span style="margin-left:auto">
+      <a href="openapi-pharmacist.json">openapi.json</a> &nbsp;|&nbsp;
+      <a href="http://localhost:4006/docs" target="_blank">Live Docs</a> &nbsp;|&nbsp;
+      <a href="index.html">RAG API</a>
+    </span>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      SwaggerUIBundle({
+        url: "openapi-pharmacist.json",
+        dom_id: "#swagger-ui",
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+        deepLinking: true,
+        displayRequestDuration: true,
+        tryItOutEnabled: true,
+        defaultModelsExpandDepth: 2,
+        docExpansion: "list",
+      });
+    };
+  </script>
+</body>
+</html>

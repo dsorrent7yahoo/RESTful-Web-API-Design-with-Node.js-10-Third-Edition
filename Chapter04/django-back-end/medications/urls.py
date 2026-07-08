@@ -3,6 +3,9 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Patient roster (sorted by last, first)
+    path("patients", views.get_patients, name="patients-list"),
+    path("patients/", views.get_patients, name="patients-list-slash"),
     # Static sub-paths must come before the <item_id> wildcard
     path("medications/patients/multiple-medications", views.get_patients_with_multiple_medications, name="patients-multiple-medications"),
     path("medications/patients/multiple-medications/", views.get_patients_with_multiple_medications, name="patients-multiple-medications-slash"),

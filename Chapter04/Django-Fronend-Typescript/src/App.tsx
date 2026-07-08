@@ -9,7 +9,7 @@ import ClaimsGenerator from './ClaimsGenerator';
 import SQSMonitor from './SQSMonitor';
 import AthenaClient from './AthenaClient';
 import PatientsEncounters from './PatientsEncounters';
-import { ApiOption, MedicationOption, BucketObject, PipelineEvent, SrcTreeNode, SourceFile, ServiceUrls, Toast } from './types';
+import { ApiOption, MedicationOption, PatientDetail, BucketObject, PipelineEvent, SrcTreeNode, SourceFile, ServiceUrls, Toast } from './types';
 
 // ---------------------------------------------------------------------------
 // API options
@@ -191,6 +191,7 @@ export default function App() {
   const [medicationId, setMedicationId]         = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
   const [patientOptions, setPatientOptions]     = useState<string[]>([]);
+  const [patientDetails, setPatientDetails]     = useState<PatientDetail[]>([]);
   const [patient, setPatient]                   = useState('');
   const [codeOptions, setCodeOptions]           = useState<string[]>([]);
   const [code, setCode]                         = useState('');
@@ -199,6 +200,7 @@ export default function App() {
   const [queryId, setQueryId]                   = useState('');
   const [queryPatientId, setQueryPatientId]     = useState('');
   const [queryMedicationId, setQueryMedicationId] = useState('');
+  const [sortAsc, setSortAsc]                   = useState(false);
   const [uploadTableName, setUploadTableName]   = useState('');
   const [selectedFile, setSelectedFile]         = useState<File | null>(null);
   const [selectedFileName, setSelectedFileName] = useState('');
@@ -443,7 +445,17 @@ export default function App() {
     } catch { /* silent */ }
   }
 
-  useEffect(() => { loadOptions(baseUrl); loadDynamoTables(baseUrl); loadGlueTables(); }, [baseUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  async function loadPatientDetails(currentBaseUrl: string) {
+    try {
+      const base = normalizeBaseUrl(currentBaseUrl);
+      const res = await fetch(`${base}/patients/`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const data = await res.json() as { patients?: PatientDetail[] };
+      if (Array.isArray(data.patients)) setPatientDetails(data.patients);
+    } catch { /* silent */ }
+  }
+
+  useEffect(() => { loadOptions(baseUrl); loadDynamoTables(baseUrl); loadGlueTables(); loadPatientDetails(baseUrl); }, [baseUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resolvedPath = useMemo(() => {
     if (selected.needsId)               return selected.path.replace('{id}',           encodeURIComponent(medicationId.trim()));
@@ -461,10 +473,11 @@ export default function App() {
       if (queryId.trim())           params.set('id',           queryId.trim());
       if (queryPatientId.trim())    params.set('patientId',    queryPatientId.trim());
       if (queryMedicationId.trim()) params.set('medicationId', queryMedicationId.trim());
+      if (sortAsc)                  params.set('sort',         'asc');
     }
     const s = params.toString();
     return s ? `?${s}` : '';
-  }, [selected, topN, queryId, queryPatientId, queryMedicationId]);
+  }, [selected, topN, queryId, queryPatientId, queryMedicationId, sortAsc]);
 
   const resolvedUrlPreview = useMemo(
     () => `${normalizedBaseUrl}${resolvedPath}${requestQueryString}`,
@@ -782,6 +795,7 @@ export default function App() {
     setDatabaseName('');
     setTopN('10');
     setQueryId(''); setQueryPatientId(''); setQueryMedicationId('');
+    setSortAsc(false);
     setUploadTableName(''); setSelectedFile(null); setSelectedFileName('');
     setBodyText(prettyJson(DEFAULT_BODY));
     setResult('Run a request to see results here.');
@@ -1090,6 +1104,8 @@ export default function App() {
         loginLoading={loginLoading} loginStatus={loginStatus} handleLogin={handleLogin}
         baseUrl={baseUrl} handleBaseUrlChange={handleBaseUrlChange}
         selectedId={selectedId} setSelectedId={setSelectedId} selected={selected} API_OPTIONS={API_OPTIONS}
+        medicationOptions={medicationOptions} patientOptions={patientOptions} codeOptions={codeOptions}
+        patientDetails={patientDetails}
         medicationId={medicationId} setMedicationId={setMedicationId}
         medicationPathId={medicationPathId} setMedicationPathId={setMedicationPathId}
         patient={patient} setPatient={setPatient}
@@ -1099,6 +1115,7 @@ export default function App() {
         queryId={queryId} setQueryId={setQueryId}
         queryPatientId={queryPatientId} setQueryPatientId={setQueryPatientId}
         queryMedicationId={queryMedicationId} setQueryMedicationId={setQueryMedicationId}
+        sortAsc={sortAsc} setSortAsc={setSortAsc}
         uploadTableName={uploadTableName} setUploadTableName={setUploadTableName}
         selectedFileName={selectedFileName} handleFileSelection={handleFileSelection}
         bodyText={bodyText} setBodyText={setBodyText}

@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 medications/views.py
 Django REST Framework views for all /medications/* endpoints (JWT-protected).
@@ -55,6 +56,43 @@ def get_medications_by_medication_id(request, medication_id):
 def get_patients_with_multiple_medications(request):
     from modules import medications
     return Response(medications.find_patients_with_multiple_medications(request.query_params))
+
+
+@api_view(["GET"])
+@jwt_required
+def get_patients(request):
+    """Return all patients (id, first, last) sorted by last name then first name."""
+    import os as _os
+    from modules.medications import scan_all
+    from model import medication as med_model
+
+    patients_table = _os.getenv("PATIENTS_TABLE_NAME", "patients")
+    if not med_model.table_exists(patients_table):
+        return Response({"patients": [], "total": 0})
+
+    table = med_model.get_table(patients_table)
+    try:
+        items = scan_all(
+            table,
+            ProjectionExpression="#pid, first, last",
+            ExpressionAttributeNames={"#pid": "id"},
+        )
+    except Exception:
+        items = scan_all(table)
+
+    patients = []
+    for item in items:
+        pid = str(item.get("id") or item.get("Id") or "").strip()
+        if not pid:
+            continue
+        patients.append({
+            "id": pid,
+            "first": str(item.get("first") or item.get("FIRST") or "").strip(),
+            "last": str(item.get("last") or item.get("LAST") or "").strip(),
+        })
+
+    patients.sort(key=lambda p: (p["last"].lower(), p["first"].lower()))
+    return Response({"patients": patients, "total": len(patients)})
 
 
 @api_view(["PUT", "DELETE"])

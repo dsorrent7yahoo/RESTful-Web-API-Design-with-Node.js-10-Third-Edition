@@ -1,6 +1,5 @@
 .login-page {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
@@ -29,13 +28,3 @@
 }
 
 mat-progress-spinner { display: inline-block; }
-
-.back-link {
-  margin-top: 16px;
-  a {
-    font-size: 13px;
-    color: #60a5fa;
-    text-decoration: none;
-    &:hover { text-decoration: underline; }
-  }
-}

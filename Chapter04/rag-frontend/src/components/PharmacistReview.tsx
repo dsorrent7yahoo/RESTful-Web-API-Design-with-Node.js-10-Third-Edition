@@ -172,6 +172,12 @@ export function PharmacistReview() {
                 <span class="badge">{result.latency_ms} ms</span>
                 <span class="badge">{result.tokens_total} tokens</span>
               </div>
+              {result.sources && result.sources.length > 0 && (
+                <div class="result-sources">
+                  <span class="sources-label">Sources:</span>
+                  {result.sources.map((s, i) => <span key={i} class="source-tag">{s}</span>)}
+                </div>
+              )}
               <div class="result-content">
                 {result.answer.split('\n').map((l, i) => l.trim() ? <p key={i}>{l}</p> : <br key={i} />)}
               </div>
@@ -194,6 +200,12 @@ export function PharmacistReview() {
             <span class="badge">{result.latency_ms} ms</span>
             <span class="badge">{result.tokens_total} tokens</span>
           </div>
+          {result.sources && result.sources.length > 0 && (
+            <div class="result-sources">
+              <span class="sources-label">Sources:</span>
+              {result.sources.map((s, i) => <span key={i} class="source-tag">{s}</span>)}
+            </div>
+          )}
           <div class="result-content">
             {result.answer.split('\n').map((l, i) => l.trim() ? <p key={i}>{l}</p> : <br key={i} />)}
           </div>

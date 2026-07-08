@@ -33,6 +33,19 @@ curl -fsSL \
 chmod +x "$COMPOSE_DIR/docker-compose"
 docker compose version
 
+# ── 3b. Docker Buildx plugin (Compose v5 requires 0.17+) ─────────────────────
+BUILDX_DIR=/root/.docker/cli-plugins
+mkdir -p "$BUILDX_DIR"
+curl -fsSL \
+  "https://github.com/docker/buildx/releases/download/v0.23.0/buildx-v0.23.0.linux-amd64" \
+  -o "$BUILDX_DIR/docker-buildx"
+chmod +x "$BUILDX_DIR/docker-buildx"
+# Also install for ec2-user
+mkdir -p /home/ec2-user/.docker/cli-plugins
+cp "$BUILDX_DIR/docker-buildx" /home/ec2-user/.docker/cli-plugins/docker-buildx
+chown ec2-user:ec2-user /home/ec2-user/.docker/cli-plugins/docker-buildx
+docker buildx version
+
 # ── 4. Clone repository ───────────────────────────────────────────────────────
 APP_DIR=/home/ec2-user/app
 git clone --branch "${github_branch}" --depth 1 \
@@ -51,6 +64,31 @@ chown ec2-user:ec2-user "$APP_DIR/Chapter04/.env"
 # Build takes ~5 minutes on first boot (compiling 6 images).
 cd "$APP_DIR/Chapter04"
 docker compose -f docker-compose.ec2.yml up -d --build
+
+# ── 7. Systemd service — auto-start containers on every boot ─────────────────
+cat > /etc/systemd/system/healthcare-stack.service << 'SVCEOF'
+[Unit]
+Description=Healthcare Docker Compose Stack
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/ec2-user/app/Chapter04
+ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose -f docker-compose.ec2.yml up -d
+ExecStop=/usr/local/lib/docker/cli-plugins/docker-compose -f docker-compose.ec2.yml down
+User=ec2-user
+Group=ec2-user
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+systemctl daemon-reload
+systemctl enable healthcare-stack.service
+echo "Auto-start service enabled"
 
 echo "=== EC2 bootstrap complete: $(date) ==="
 echo "Landing page: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)"

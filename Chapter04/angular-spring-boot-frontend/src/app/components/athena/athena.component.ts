@@ -34,11 +34,6 @@ export class AthenaComponent implements OnInit {
   queryResult  = signal<any>(null);
   loading      = signal(false);
 
-  // AI SQL generation
-  aiPrompt     = signal('');
-  aiResult     = signal<any>(null);
-  aiLoading    = signal(false);
-
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
@@ -80,21 +75,5 @@ export class AthenaComponent implements OnInit {
 
   get resultRows(): any[] {
     return this.queryResult()?.rows ?? [];
-  }
-
-  generateSql(): void {
-    const prompt = this.aiPrompt().trim();
-    if (!prompt) return;
-    this.aiLoading.set(true);
-    this.aiResult.set(null);
-    this.http.post<any>(`${this.baseUrl}/athena/generate-sql`,
-      { prompt, database: this.selectedDb() }).subscribe({
-      next: res => {
-        this.aiResult.set(res);
-        if (res.sql) this.sql.set(res.sql);
-        this.aiLoading.set(false);
-      },
-      error: err => { this.aiResult.set({ error: err.error }); this.aiLoading.set(false); },
-    });
   }
 }
