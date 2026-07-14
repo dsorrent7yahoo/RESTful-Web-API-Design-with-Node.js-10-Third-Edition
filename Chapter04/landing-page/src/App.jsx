@@ -138,6 +138,28 @@ const APPS = [
     ],
     portNote: `Frontend: port 5181  ·  API: port 4004`,
   },
+  {
+    id: 'springboot-react',
+    name: 'Spring Boot / React',
+    stack: 'Java · Spring Boot 3 · React · DynamoDB',
+    icon: '⚛️',
+    gradient: 'linear-gradient(135deg, #c4b5fd, #7c3aed)',
+    accentColor: '#a78bfa',
+    frontendUrl: `http://${HOST}:5184`,
+    apiUrl: `http://${HOST}:4004`,
+    healthPath: '/health',
+    description:
+      'React-powered dashboard for the Spring Boot 3 healthcare API. Full CRUD medications workflow, DynamoDB tables, SQS/Claims/Athena microservice explorer with purple design system.',
+    features: [
+      'Medications CRUD Workflow',
+      'DynamoDB Tables',
+      'API Explorer',
+      'Microservice Health Chips',
+      'SSO from Portal',
+      'Purple Design Theme',
+    ],
+    portNote: `Frontend: port 5184  ·  API: port 4004`,
+  },
 ];
 
 // ── Health status dot ─────────────────────────────────────────────────────────

@@ -37,8 +37,8 @@ services:
       FLASK_UI_URL:      "http://flask-backend:4001"
       NODE_URL:          "http://node-backend:4001"
       NODE_UI_URL:       "http://node-frontend"
-      SPRINGBOOT_URL:    "http://localhost:4004"
-      SPRINGBOOT_UI_URL: "http://localhost:5181"
+      SPRINGBOOT_URL:    "http://spring-boot-backend:4003"
+      SPRINGBOOT_UI_URL: "http://angular-frontend"
       GLUE_URL:          "http://glue-service:4010"
       CLAIMS_URL:        "http://claims-service:4011"
       CLEANER_URL:       "http://cleaner-service:4012"
@@ -54,6 +54,7 @@ services:
       - flask-backend
       - node-backend
       - django-ts-frontend
+      - spring-boot-backend
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e",
@@ -291,7 +292,7 @@ services:
       dockerfile: Dockerfile.rag
     image: healthcare-rag:latest
     ports:
-      - "5000:80"
+      - "5050:80"
     environment:
       RAG_EMBED_BACKEND: clinicalbert
       RAG_CLINICALBERT_MODEL: pritamdeka/S-PubMedBert-MS-MARCO
@@ -302,7 +303,7 @@ services:
       RAG_ALPHA: "0.6"
       RAG_CHUNK_SIZE: "400"
       RAG_CHUNK_OVERLAP: "50"
-      CORS_ORIGINS: '["http://44.210.179.18","http://44.210.179.18:5000","http://sorrentino-aws-demos.click","http://sorrentino-aws-demos.click:5000","http://localhost:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176","http://localhost:5177","http://localhost:5178","http://localhost:8080"]'
+      CORS_ORIGINS: '["http://44.210.179.18","http://44.210.179.18:5050","http://sorrentino-aws-demos.click","http://sorrentino-aws-demos.click:5050","http://localhost:5173","http://localhost:5174","http://localhost:5175","http://localhost:5176","http://localhost:5177","http://localhost:5178","http://localhost:8080"]'
       AWS_REGION: us-east-1
       DYNAMODB_TABLE: medications
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
@@ -317,3 +318,58 @@ services:
       timeout: 10s
       retries: 3
       start_period: 90s
+
+  # ── Spring Boot 3: Java backend API on port 4004 ─────────────────────────────
+  spring-boot-backend:
+    build:
+      context: ./spring-boot-backend
+      dockerfile: Dockerfile
+    image: healthcare-spring-boot-backend:ec2
+    ports:
+      - "4004:4003"
+    environment:
+      AWS_REGION: us-east-1
+      JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      SPRING_PROFILES_ACTIVE: docker
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c",
+             "wget -qO- http://localhost:4003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ── Angular frontend served via nginx on port 5181 ───────────────────────────
+  angular-frontend:
+    build:
+      context: ./angular-spring-boot-frontend
+      dockerfile: Dockerfile.nginx
+    image: healthcare-angular-frontend:ec2
+    ports:
+      - "5181:80"
+    depends_on:
+      - spring-boot-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── React frontend served via nginx on port 5184 ─────────────────────────────
+  react-frontend:
+    build:
+      context: ./spring-boot-react-frontend
+      dockerfile: Dockerfile.nginx
+    image: healthcare-react-frontend:ec2
+    ports:
+      - "5184:80"
+    depends_on:
+      - spring-boot-backend
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

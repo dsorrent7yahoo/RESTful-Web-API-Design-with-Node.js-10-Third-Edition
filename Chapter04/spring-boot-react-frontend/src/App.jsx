@@ -1,892 +1,311 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import './styles.css';
+import OnSubmitWorkflow from './onSubmitWorkflow';
 
-const API_OPTIONS = [
-  { id: 'getAll', label: 'GET /medications/', method: 'GET', path: '/medications/', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: true, supportsQueryFilters: true, needsFileUpload: false },
-  { id: 'getById', label: 'GET /medications/id/:id', method: 'GET', path: '/medications/id/{id}', needsBody: false, needsId: true, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'getByPatient', label: 'GET /medications/patient/:patient', method: 'GET', path: '/medications/patient/{patient}', needsBody: false, needsId: false, needsPatient: true, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'getByCode', label: 'GET /medications/code/:code', method: 'GET', path: '/medications/code/{code}', needsBody: false, needsId: false, needsPatient: false, needsCode: true, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'getByMedicationPath', label: 'GET /medications/medication/:medicationId', method: 'GET', path: '/medications/medication/{medicationId}', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: true, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'getPatientsMulti', label: 'GET /medications/patients/multiple-medications', method: 'GET', path: '/medications/patients/multiple-medications', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: true, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'postMedication', label: 'POST /medications/', method: 'POST', path: '/medications/', needsBody: true, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'putMedication', label: 'PUT /medications/:id', method: 'PUT', path: '/medications/{id}', needsBody: true, needsId: true, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'deleteMedication', label: 'DELETE /medications/:id', method: 'DELETE', path: '/medications/{id}', needsBody: false, needsId: true, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'uploadCsv', label: 'POST /medications/upload', method: 'POST', path: '/medications/upload', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: true },
-  { id: 'listTables', label: 'GET /tables', method: 'GET', path: '/tables', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
-  { id: 'launchFrontend', label: 'DynamoDB Table Loader', method: 'GET', path: '/launch/frontend', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false }
-];
-
-const DEFAULT_BODY = {
-  id: 'patient-encounter-code',
-  start: '2022-11-07T00:00:00.000Z',
-  stop: '2022-11-07T00:00:00.000Z',
-  patient: 'patient-123',
-  payer: 'payer-123',
-  encounter: 'encounter-123',
-  code: 'med-code-123',
-  description: 'Medication sample',
-  baseCost: 10.5,
-  payerCoverage: 8.2,
-  dispenses: 1,
-  totalCost: 10.5,
-  reasonCode: 'reason-1',
-  reasonDescription: 'Demo payload'
-};
-
-const DEFAULT_UPLOAD_BODY = {
-  tableName: 'medications',
-  csvPath: 'C:/Users/Dan/OneDrive/RESTful-Web-API-Design-with-Node.js-10-Third-Edition/Chapter04/coherent-11-07-2022/csv/medications.csv'
-};
-
-const TABLE_COLUMNS = [
-  'id',
-  'start',
-  'stop',
-  'patient',
-  'payer',
-  'encounter',
-  'code',
-  'description',
-  'baseCost',
-  'payerCoverage',
-  'dispenses',
-  'totalCost',
-  'reasonCode',
-  'reasonDescription'
-];
-
-function prettyJson(value) {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (error) {
-    return String(value);
-  }
-}
-
-function normalizeRowsFromResponse(payload) {
-  if (Array.isArray(payload)) {
-    return payload.filter((row) => row && typeof row === 'object');
-  }
-
-  if (payload && typeof payload === 'object') {
-    if (Array.isArray(payload.items)) {
-      return payload.items.filter((row) => row && typeof row === 'object');
-    }
-
-    if (Array.isArray(payload.data)) {
-      return payload.data.filter((row) => row && typeof row === 'object');
-    }
-
-    if (Array.isArray(payload.results)) {
-      return payload.results.filter((row) => row && typeof row === 'object');
-    }
-
-    return [payload];
-  }
-
-  return [];
-}
-
-function inferTableColumns(rows) {
-  const keys = [];
-  rows.forEach((row) => {
-    Object.keys(row || {}).forEach((key) => {
-      if (!keys.includes(key)) {
-        keys.push(key);
-      }
-    });
-  });
-
-  if (keys.length === 0) {
-    return TABLE_COLUMNS;
-  }
-
-  return keys;
-}
-
-function getCellValue(row, key) {
-  const value = row[key];
-
-  if (Array.isArray(value)) {
-    if (value.every((item) => item && typeof item === 'object' && !Array.isArray(item))) {
-      const medicationNames = value
-        .map((item) => item.medicationName || item.description || item.name || item.medicationId)
-        .filter((name) => Boolean(name))
-        .map((name) => String(name))
-        .sort((a, b) => a.localeCompare(b));
-
-      if (medicationNames.length > 0) {
-        return (
-          <span>
-            {medicationNames.map((name, index) => (
-              <span
-                key={`${name}-${index}`}
-                className={index % 2 === 1 ? 'medication-name-alt' : ''}
-              >
-                {index > 0 ? ', ' : ''}
-                {name}
-              </span>
-            ))}
-          </span>
-        );
-      }
-
-      return JSON.stringify(value);
-    }
-
-    return value.join(', ');
-  }
-
-  if (value && typeof value === 'object') {
-    return JSON.stringify(value);
-  }
-
-  if (value === null || value === undefined || value === '') {
-    return '-';
-  }
-
-  return String(value);
-}
-
-function inferTableNameFromFileName(fileName) {
-  const baseName = String(fileName || '')
-    .replace(/\.[^/.]+$/, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-
-  return baseName || 'uploaded_data';
-}
-
-function chunkTableNames(tableNames, chunkSize) {
-  const rows = [];
-  for (let index = 0; index < tableNames.length; index += chunkSize) {
-    rows.push(tableNames.slice(index, index + chunkSize));
-  }
-  return rows;
-}
-
-// Single gateway entry point — auto-derives the host so no hardcoded IP is needed
-const GATEWAY_ORIGIN = `${window.location.protocol}//${window.location.hostname}:8080`;
+const TOKEN_KEY = 'healthCareToken';
+const HOST = window.location.hostname;
+const LANDING = HOST === 'localhost' ? 'http://localhost:5180' : `http://${HOST}`;
 
 const BACKEND_PRESETS = {
-  aws:        `${GATEWAY_ORIGIN}/proxy/springboot`,
-  docker:     'http://localhost:8080',
-  standalone: 'http://localhost:8081',
+  aws:     `http://${HOST}:8080/proxy/springboot`,
+  cmdline: 'http://localhost:4004',
 };
 
-// Landing page: port 5180 locally, root domain on EC2 / production
-const LANDING_URL = window.location.hostname === 'localhost'
-  ? `${window.location.protocol}//localhost:5180`
-  : `${window.location.protocol}//${window.location.hostname}`;
+const MICROSERVICE_URLS = {
+  glueCatalog:        `http://${HOST}:8080/proxy/glue`,
+  claimsGenerator:    `http://${HOST}:8080/proxy/claims`,
+  claimsCleaner:      `http://${HOST}:8080/proxy/cleaner`,
+  sqsMonitor:         `http://${HOST}:8080/proxy/sqs`,
+  athenaClient:       `http://${HOST}:8080/proxy/athena`,
+  patientsEncounters: `http://${HOST}:8080/proxy/patients`,
+};
 
-function normalizeBaseUrl(value) {
-  return String(value || '').trim().replace(/\/$/, '');
+const EXPLORER_PRESETS = [
+  { label: '/medications/', method: 'GET',  path: '/medications/?limit=50' },
+  { label: '/tables',       method: 'GET',  path: '/tables' },
+  { label: '/health',       method: 'GET',  path: '/health' },
+  { label: '/sqs/stats',    method: 'GET',  path: '/sqs/stats' },
+  { label: '/claims/files', method: 'GET',  path: '/claims/files' },
+];
+
+function decodeJwt(t) {
+  try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); } catch { return null; }
+}
+function getToken()   { return localStorage.getItem(TOKEN_KEY); }
+function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+function isLoggedIn() { const t=getToken(); if(!t) return false; const p=decodeJwt(t); return p ? p.exp*1000>Date.now() : false; }
+
+// SSO bootstrap — must run before React renders
+const ssoParam = new URLSearchParams(window.location.search).get('sso');
+if (ssoParam) localStorage.setItem(TOKEN_KEY, ssoParam);
+if (!isLoggedIn()) { window.location.href = LANDING; }
+
+async function apiFetch(url, opts = {}) {
+  const token = getToken();
+  const res = await fetch(url, { ...opts, headers: { 'Content-Type':'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {}), ...(opts.headers||{}) } });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.message || res.statusText), { status: res.status });
+  return data;
 }
 
-function resolveBackendMode(baseUrl) {
-  const normalizedBase = normalizeBaseUrl(baseUrl);
-  const matchedEntry = Object.entries(BACKEND_PRESETS).find(([, presetUrl]) => normalizeBaseUrl(presetUrl) === normalizedBase);
-  return matchedEntry ? matchedEntry[0] : 'custom';
+// ─── StatusDot ────────────────────────────────────────────────────────────────
+function StatusDot({ online }) {
+  return (
+    <span className={`status-dot ${online ? 'online' : online===false ? 'offline' : 'checking'}`}>
+      {online ? '● Online' : online===false ? '○ Offline' : '◌ Checking'}
+    </span>
+  );
 }
 
-function getBackendModeLabel(mode) {
-  if (mode === 'aws') return 'AWS';
-  if (mode === 'docker') return 'Docker';
-  if (mode === 'standalone') return 'Standalone';
-  return 'Custom';
-}
-
-export default function App() {
-  const [baseUrl, setBaseUrl] = useState(BACKEND_PRESETS.docker);
-  const [backendMode, setBackendMode] = useState('docker');
-  const [selectedId, setSelectedId] = useState('getAll');
-  const [medicationId, setMedicationId] = useState('');
-  const [medicationPathId, setMedicationPathId] = useState('');
-  const [patientOptions, setPatientOptions] = useState([]);
-  const [patient, setPatient] = useState('');
-  const [codeOptions, setCodeOptions] = useState([]);
-  const [code, setCode] = useState('');
-  const [topN, setTopN] = useState('10');
-  const [queryId, setQueryId] = useState('');
-  const [queryPatientId, setQueryPatientId] = useState('');
-  const [queryMedicationId, setQueryMedicationId] = useState('');
-  const [uploadTableName, setUploadTableName] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedFileName, setSelectedFileName] = useState('');
-  const [medicationOptions, setMedicationOptions] = useState([]);
-  const [bodyText, setBodyText] = useState(prettyJson(DEFAULT_BODY));
-  const [result, setResult] = useState('Run a request to see results here.');
-  const [status, setStatus] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [showResponseModal, setShowResponseModal] = useState(false);
-  const [showLoaderModal, setShowLoaderModal] = useState(false);
-  const [tableRows, setTableRows] = useState([]);
-  const [tableColumns, setTableColumns] = useState(TABLE_COLUMNS);
-  const [dynamoTables, setDynamoTables] = useState([]);
-
-  const selected = useMemo(
-    () => API_OPTIONS.find((option) => option.id === selectedId) || API_OPTIONS[0],
-    [selectedId]
-  );
-
-  const dynamoTableRows = useMemo(
-    () => chunkTableNames(dynamoTables, 5),
-    [dynamoTables]
-  );
-
-  const normalizedBaseUrl = useMemo(() => normalizeBaseUrl(baseUrl), [baseUrl]);
-
-  const backendModeLabel = useMemo(
-    () => getBackendModeLabel(backendMode),
-    [backendMode]
-  );
-  // Lock buttons to active mode; standalone always allows switching
-  const modeLocked = backendMode !== 'standalone';
-
-  function setBackendTarget(mode) {
-    const nextUrl = BACKEND_PRESETS[mode] || baseUrl;
-    setBackendMode(mode);
-    setBaseUrl(nextUrl);
-  }
-
-  function handleBaseUrlChange(event) {
-    const nextUrl = event.target.value;
-    setBaseUrl(nextUrl);
-    setBackendMode(resolveBackendMode(nextUrl));
-  }
-
-  async function loadDynamoTables(currentBaseUrl) {
-    try {
-      const normalizedBase = normalizeBaseUrl(currentBaseUrl || baseUrl);
-      const response = await fetch(`${normalizedBase}/tables`);
-      if (!response.ok) return;
-      const data = await response.json();
-      setDynamoTables(Array.isArray(data.tables) ? data.tables.sort() : []);
-    } catch (error) {
-      // silently ignore — tables panel will just stay empty
-    }
-  }
-
-  async function loadOptions(currentBaseUrl) {
-    try {
-      const normalizedBase = normalizeBaseUrl(currentBaseUrl);
-      const response = await fetch(`${normalizedBase}/medications/?limit=250`);
-
-      if (!response.ok) {
-        return;
-      }
-
-      const data = await response.json();
-      const items = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : [];
-
-      const medicationChoices = items
-        .filter((item) => item && item.id)
-        .map((item) => ({
-          value: String(item.id),
-          label: `${item.id} - ${item.description || item.code || 'Unnamed Medication'}`
-        }));
-
-      const patientChoices = Array.from(
-        new Set(
-          items
-            .map((item) => item && item.patient)
-            .filter((value) => Boolean(value))
-        )
-      ).sort((a, b) => a.localeCompare(b));
-
-      const codeChoices = Array.from(
-        new Set(
-          items
-            .map((item) => item && item.code)
-            .filter((value) => Boolean(value))
-        )
-      ).sort((a, b) => a.localeCompare(b));
-
-      setMedicationOptions(medicationChoices);
-      setPatientOptions(patientChoices);
-      setCodeOptions(codeChoices);
-
-      if (medicationChoices.length === 0) {
-        setMedicationId('');
-        setMedicationPathId('');
-      } else if (!medicationChoices.some((option) => option.value === medicationId)) {
-        setMedicationId(medicationChoices[0].value);
-        setMedicationPathId(medicationChoices[0].value);
-      } else if (!medicationChoices.some((option) => option.value === medicationPathId)) {
-        setMedicationPathId(medicationChoices[0].value);
-      }
-
-      if (patientChoices.length === 0) {
-        setPatient('');
-      } else if (!patientChoices.includes(patient)) {
-        setPatient(patientChoices[0]);
-      }
-
-      if (codeChoices.length === 0) {
-        setCode('');
-      } else if (!codeChoices.includes(code)) {
-        setCode(codeChoices[0]);
-      }
-    } catch (error) {
-    }
-  }
-
+// ─── ServiceChip ──────────────────────────────────────────────────────────────
+function ServiceChip({ name, url }) {
+  const [ok, setOk] = useState(null);
   useEffect(() => {
-    loadOptions(baseUrl);
-    loadDynamoTables(baseUrl);
+    const check = () => fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) }).then(r => setOk(r.ok)).catch(() => setOk(false));
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  }, [url]);
+  return (
+    <div className="svc-chip">
+      <span className="svc-name">{name}</span>
+      <span className="svc-url">{url.replace(/^https?:\/\/[^/]+/, '')}</span>
+      <span className={`svc-status ${ok===null?'checking':ok?'up':'down'}`}>
+        {ok===null ? '◌' : ok ? '●' : '○'}
+      </span>
+    </div>
+  );
+}
+
+// ─── TablesPanel ──────────────────────────────────────────────────────────────
+function TablesPanel({ baseUrl }) {
+  const [tables, setTables] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const load = useCallback(() => {
+    setLoading(true);
+    apiFetch(`${baseUrl}/tables`).then(d => setTables(d.tables || d || [])).catch(() => setTables([])).finally(() => setLoading(false));
   }, [baseUrl]);
+  useEffect(() => { load(); }, [load]);
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <span>DynamoDB Tables ({tables.length})</span>
+        <button className="icon-btn" onClick={load}>⟳</button>
+      </div>
+      {loading ? <p className="muted">Loading tables…</p> : tables.length === 0 ? <p className="muted">No tables found.</p> :
+        <ul className="table-list">{tables.map(t => <li key={t}>📋 {t}</li>)}</ul>}
+    </div>
+  );
+}
 
-  function restartExplorer() {
-    setBackendTarget('docker');
-    setSelectedId('getAll');
-    setMedicationId(medicationOptions[0]?.value || '');
-    setMedicationPathId(medicationOptions[0]?.value || '');
-    setPatient(patientOptions[0] || '');
-    setCode(codeOptions[0] || '');
-    setTopN('10');
-    setQueryId('');
-    setQueryPatientId('');
-    setQueryMedicationId('');
-    setUploadTableName('');
-    setSelectedFile(null);
-    setSelectedFileName('');
-    setBodyText(prettyJson(DEFAULT_BODY));
-    setResult('Run a request to see results here.');
-    setStatus('Explorer reset');
-  }
+// ─── MedicationsPanel ─────────────────────────────────────────────────────────
+function MedicationsPanel({ baseUrl }) {
+  const [rows, setRows]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter]   = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm]       = useState({ id:'', patient:'', code:'', description:'', baseCost:'', totalCost:'' });
+  const [saving, setSaving]   = useState(false);
 
-  function quitExplorer() {
-    window.close();
-    setStatus('Quit requested');
-    setResult('If the tab did not close (browser policy), you can close it manually.');
-  }
+  const load = useCallback(() => {
+    setLoading(true);
+    apiFetch(`${baseUrl}/medications/?limit=200`).then(d => setRows(Array.isArray(d) ? d : d.medications || [])).catch(() => setRows([])).finally(() => setLoading(false));
+  }, [baseUrl]);
+  useEffect(() => { load(); }, [load]);
 
-  const resolvedPath = useMemo(() => {
-    if (selected.needsId) {
-      return selected.path.replace('{id}', encodeURIComponent(medicationId.trim()));
-    }
+  const visible = rows.filter(r => !filter || JSON.stringify(r).toLowerCase().includes(filter.toLowerCase()));
 
-    if (selected.needsPatient) {
-      return selected.path.replace('{patient}', encodeURIComponent(patient.trim()));
-    }
-
-    if (selected.needsCode) {
-      return selected.path.replace('{code}', encodeURIComponent(code.trim()));
-    }
-
-    if (selected.needsMedicationPathId) {
-      return selected.path.replace('{medicationId}', encodeURIComponent(medicationPathId.trim()));
-    }
-
-    return selected.path;
-  }, [selected, medicationId, patient, code, medicationPathId]);
-
-  const requestQueryString = useMemo(() => {
-    const params = new URLSearchParams();
-
-    if (selected.needsTopN && topN.trim()) {
-      params.set('topN', topN.trim());
-    }
-
-    if (selected.supportsQueryFilters) {
-      if (queryId.trim()) {
-        params.set('id', queryId.trim());
-      }
-      if (queryPatientId.trim()) {
-        params.set('patientId', queryPatientId.trim());
-      }
-      if (queryMedicationId.trim()) {
-        params.set('medicationId', queryMedicationId.trim());
-      }
-    }
-
-    const serialized = params.toString();
-    return serialized ? `?${serialized}` : '';
-  }, [selected, topN, queryId, queryPatientId, queryMedicationId]);
-
-  const resolvedUrlPreview = useMemo(() => {
-    return `${normalizedBaseUrl}${resolvedPath}${requestQueryString}`;
-  }, [normalizedBaseUrl, resolvedPath, requestQueryString]);
-
-  async function runRequest(event) {  //Event is onSubmit
-    event.preventDefault();
-
-    if (selected.id === 'launchFrontend') {
-      setShowLoaderModal(true);
-      setStatus('Opened DynamoDB Table Loader dialog.');
-      return;
-    }
-
-    if (selected.needsId && !medicationId.trim()) {
-      setStatus('Medication ID is required.');
-      return;
-    }
-
-    if (selected.needsPatient && !patient.trim()) {
-      setStatus('Patient is required.');
-      return;
-    }
-
-    if (selected.needsCode && !code.trim()) {
-      setStatus('Code is required.');
-      return;
-    }
-
-    if (selected.needsMedicationPathId && !medicationPathId.trim()) {
-      setStatus('Medication ID is required.');
-      return;
-    }
-
-    if (selected.needsTopN && topN.trim() && (!Number.isFinite(Number(topN)) || Number(topN) <= 0)) {
-      setStatus('topN must be a positive number.');
-      return;
-    }
-
-    const normalizedBase = normalizeBaseUrl(baseUrl);
-    const url = normalizedBase + resolvedPath + requestQueryString;
-    const options = { method: selected.method, headers: {} };
-
-    if (selected.needsFileUpload) {
-      const payload = {};
-
-      if (uploadTableName.trim()) {
-        payload.tableName = uploadTableName.trim();
-      }
-
-      if (selectedFile) {
-        try {
-          payload.csvContent = await selectedFile.text();
-          payload.fileName = selectedFile.name;
-        } catch (error) {
-          setStatus('Unable to read selected CSV file.');
-          return;
-        }
-      }
-
-      options.headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(payload);
-    } else if (selected.needsBody) {
-      try {
-        const parsed = JSON.parse(bodyText);
-        options.headers['Content-Type'] = 'application/json';
-        options.body = JSON.stringify(parsed);
-      } catch (error) {
-        setStatus('Invalid JSON body. Fix it and try again.');
-        return;
-      }
-    }
-
-    setIsLoading(true);
-    setStatus('Sending request...');
-
+  const save = async () => {
+    setSaving(true);
     try {
-      let response = await fetch(url, options);
-      let responseText = await response.text();
-      let parsedBody = responseText;
+      await apiFetch(`${baseUrl}/medications/`, { method:'POST', body: JSON.stringify({...form, baseCost:+form.baseCost, totalCost:+form.totalCost}) });
+      setShowAdd(false); setForm({ id:'', patient:'', code:'', description:'', baseCost:'', totalCost:'' }); load();
+    } catch(e) { alert(e.message); } finally { setSaving(false); }
+  };
 
-      try {
-        parsedBody = JSON.parse(responseText);
-      } catch (error) {
-      }
-
-      if (
-        selected.needsFileUpload
-        && response.status === 409
-        && parsedBody
-        && typeof parsedBody === 'object'
-        && parsedBody.requiresConfirmation
-      ) {
-        const shouldReplace = window.confirm(`${parsedBody.message}\n\nClick OK to delete the existing table and upload fresh data.\nClick Cancel to abort — the existing table will not be changed.`);
-        if (shouldReplace) {
-          const originalPayload = options.body ? JSON.parse(options.body) : {};
-          originalPayload.replaceExistingTable = true;
-          response = await fetch(url, {
-            method: selected.method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(originalPayload)
-          });
-          responseText = await response.text();
-          parsedBody = responseText;
-          try {
-            parsedBody = JSON.parse(responseText);
-          } catch (error) {
-          }
-        } else {
-          setStatus('Upload cancelled — existing table was not modified.');
-          setResult('');
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      setStatus(`${response.status} ${response.statusText}`);
-      setResult(prettyJson(parsedBody));
-
-      const rows = normalizeRowsFromResponse(parsedBody);
-      if (rows.length > 0) {
-        setTableColumns(inferTableColumns(rows));
-        setTableRows(rows);
-        setShowResponseModal(true);
-      } else {
-        setTableRows([]);
-      }
-
-      if (['POST', 'PUT', 'DELETE'].includes(selected.method) || selected.id === 'uploadCsv') {
-        loadOptions(baseUrl);
-      }
-
-      if (selected.id === 'uploadCsv' && response.status === 200) {
-        await loadDynamoTables(baseUrl);
-      }
-    } catch (error) {
-      setStatus('Request failed');
-      setResult(error.message || String(error));
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function loadUploadBody() {
-    setBodyText(prettyJson(DEFAULT_UPLOAD_BODY));
-    setStatus('Loaded CSV upload body template');
-  }
-
-  function handleFileSelection(event) {
-    const file = event.target.files && event.target.files[0] ? event.target.files[0] : null;
-    setSelectedFile(file);
-    setSelectedFileName(file ? file.name : '');
-
-    if (file && !uploadTableName.trim()) {
-      setUploadTableName(inferTableNameFromFileName(file.name));
-    }
-  }
-
-  async function uploadCsvToTable() {
-    const normalizedBase = baseUrl.trim().replace(/\/$/, '');
-    const url = `${normalizedBase}/medications/upload`;
-    const resolvedTableName = uploadTableName.trim() || inferTableNameFromFileName(selectedFileName);
-    const payload = { tableName: resolvedTableName };
-
-    setIsLoading(true);
-    setStatus('Preparing upload...');
-    setResult('');
-
-    if (selectedFile) {
-      try {
-        const sizeMb = (selectedFile.size / (1024 * 1024)).toFixed(1);
-        setStatus(`Reading ${selectedFile.name} (${sizeMb} MB)...`);
-        payload.csvContent = await selectedFile.text();
-        payload.fileName = selectedFile.name;
-      } catch (error) {
-        setStatus('Unable to read selected CSV file.');
-        setResult(String(error));
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    try {
-      setStatus('Uploading to DynamoDB... this can take several minutes for large CSV files.');
-      const controller = new AbortController();
-      const timeoutMs = 20 * 60 * 1000;
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      let response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      let responseText = await response.text();
-      let parsedBody = responseText;
-      try { parsedBody = JSON.parse(responseText); } catch (e) {}
-
-      if (response.status === 409 && parsedBody && parsedBody.requiresConfirmation) {
-        const shouldReplace = window.confirm(
-          `${parsedBody.message}\n\nClick OK to delete the existing table and upload fresh data.\nClick Cancel to abort — the existing table will not be changed.`
-        );
-        if (!shouldReplace) {
-          setStatus('Upload cancelled — existing table was not modified.');
-          setResult('');
-          setIsLoading(false);
-          return;
-        }
-        payload.replaceExistingTable = true;
-        setStatus('Replacing existing table and uploading data...');
-
-        const replaceController = new AbortController();
-        const replaceTimeoutMs = 20 * 60 * 1000;
-        const replaceTimeoutId = setTimeout(() => replaceController.abort(), replaceTimeoutMs);
-
-        response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: replaceController.signal
-        });
-
-        clearTimeout(replaceTimeoutId);
-
-        responseText = await response.text();
-        parsedBody = responseText;
-        try { parsedBody = JSON.parse(responseText); } catch (e) {}
-      }
-
-      setStatus(`${response.status} ${response.statusText}`);
-      setResult(prettyJson(parsedBody));
-
-      if (response.ok) {
-        await loadDynamoTables(baseUrl);
-      }
-    } catch (error) {
-      if (error && error.name === 'AbortError') {
-        setStatus('Upload timed out');
-        setResult('The upload request exceeded 20 minutes. The backend may still be processing. Check backend logs and table list.');
-      } else {
-        setStatus('Upload failed');
-        setResult(error.message || String(error));
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function closeLoaderModal() {
-    setShowLoaderModal(false);
-    setSelectedId('getAll');
-  }
+  const del = async id => {
+    if (!confirm(`Delete ${id}?`)) return;
+    await apiFetch(`${baseUrl}/medications/${id}`, { method:'DELETE' }).catch(e => alert(e.message));
+    load();
+  };
 
   return (
-    <main className="page">
-      <section className="hero panel">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-            <h1>Spring Boot DynamoDB Medication API Client</h1>
-            <a href={LANDING_URL}
-               style={{ fontSize: '13px', color: '#60a5fa', textDecoration: 'none', border: '1px solid #1e3a5f', borderRadius: '6px', padding: '4px 10px', whiteSpace: 'nowrap' }}
-            >🏠 Landing Page</a>
-          </div>
-          <p className="lede">Drive the DynamoDB medication routes from a single React UI and inspect every response in a table.</p>
-          <div className="hero-status" aria-live="polite">
-            <span className={isLoading ? 'status-dot busy' : 'status-dot'} />
-            <span>{isLoading ? 'Request in progress...' : 'Ready'}</span>
-          </div>
-          {isLoading && (
-            <div className="progress-wrap" aria-label="Header request progress">
-              <div className="progress-bar" />
-            </div>
-          )}
+    <div className="panel">
+      <div className="panel-header">
+        <input className="filter-input" placeholder="Filter by patient / code / description…" value={filter} onChange={e => setFilter(e.target.value)} />
+        <button className="btn-primary" onClick={() => setShowAdd(s => !s)}>+ Add</button>
+        <button className="icon-btn" onClick={load}>⟳</button>
+      </div>
+      {showAdd && (
+        <div className="add-form">
+          {['id','patient','code','description','baseCost','totalCost'].map(f => (
+            <input key={f} className="filter-input" placeholder={f} value={form[f]} onChange={e => setForm(p => ({...p,[f]:e.target.value}))} />
+          ))}
+          <button className="btn-primary" onClick={save} disabled={saving}>{saving?'Saving…':'Save'}</button>
+          <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
         </div>
-        <div className="hero-badge">
-          <span>Backend</span>
-          <strong>{backendModeLabel}</strong>
-          <span className="hero-badge-url">{normalizedBaseUrl || 'localhost'}</span>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>API Pull Down</h2>
-        <form onSubmit={runRequest} className="form">
-          <div className="backend-group" role="group" aria-label="Backend target">
-            <button type="button" className={backendMode === 'standalone' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('standalone')} disabled={modeLocked && backendMode !== 'standalone'}>
-              Standalone
-            </button>
-            <button type="button" className={backendMode === 'docker' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('docker')} disabled={modeLocked && backendMode !== 'docker'}>
-              Docker
-            </button>
-            <button type="button" className={backendMode === 'aws' ? 'backend-option active' : 'backend-option'} onClick={() => setBackendTarget('aws')} disabled={modeLocked && backendMode !== 'aws'}>
-              AWS
-            </button>
-          </div>
-          <div className="meta">Default is Docker. Use Standalone for local port 8081 and AWS for the deployed Spring Boot backend.</div>
-          <label>
-            Server URL
-            <input value={baseUrl} onChange={handleBaseUrlChange} />
-          </label>
-          <label>
-            API Call
-            <select value={selectedId} onChange={(event) => setSelectedId(event.target.value)}>
-              {API_OPTIONS.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {option.label}
-                </option>
+      )}
+      <div style={{overflowX:'auto'}}>
+        <table className="data-table">
+          <thead><tr><th>ID</th><th>Patient</th><th>Code</th><th>Description</th><th>Base $</th><th>Total $</th><th></th></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} className="muted">Loading…</td></tr> :
+              visible.length === 0 ? <tr><td colSpan={7} className="muted" style={{textAlign:'center'}}>No results</td></tr> :
+              visible.map(r => (
+                <tr key={r.id}>
+                  <td className="truncate">{r.id}</td>
+                  <td className="truncate">{r.patient}</td>
+                  <td>{r.code}</td>
+                  <td className="truncate">{r.description}</td>
+                  <td>{r.baseCost}</td>
+                  <td>{r.totalCost}</td>
+                  <td><button className="btn-danger" onClick={() => del(r.id)}>✕</button></td>
+                </tr>
               ))}
+          </tbody>
+        </table>
+        <p className="muted" style={{marginTop:8}}>{visible.length} items shown</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── ExplorerPanel ────────────────────────────────────────────────────────────
+function ExplorerPanel({ baseUrl, microOn }) {
+  const [target, setTarget] = useState('backend');
+  const [method, setMethod] = useState('GET');
+  const [path, setPath]     = useState('/medications/?limit=50');
+  const [body, setBody]     = useState('');
+  const [resp, setResp]     = useState('');
+  const [status, setStatus] = useState(0);
+  const [busy, setBusy]     = useState(false);
+
+  const effectiveUrl = target === 'backend' ? baseUrl : (MICROSERVICE_URLS[target] ?? baseUrl);
+
+  const send = async () => {
+    setBusy(true); setResp(''); setStatus(0);
+    const token = getToken();
+    const opts = { method, headers: { 'Content-Type':'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {}) } };
+    if (['POST','PUT','PATCH'].includes(method)) opts.body = body || '{}';
+    try {
+      const res = await fetch(effectiveUrl + path, opts);
+      const data = await res.json().catch(() => ({}));
+      setStatus(res.status); setResp(JSON.stringify(data, null, 2));
+    } catch(e) { setStatus(0); setResp(e.message); } finally { setBusy(false); }
+  };
+
+  const statusColor = status >= 200 && status < 300 ? '#a78bfa' : status >= 400 ? '#ef4444' : '#6b7280';
+
+  return (
+    <div className="panel">
+      <div className="panel-header">
+        <span className="panel-title">🔬 API Explorer</span>
+        <label style={{color:'#94a3b8',fontSize:12}}>
+          Target:&nbsp;
+          <select className="select-input" value={target} onChange={e => setTarget(e.target.value)}>
+            <option value="backend">Backend ({baseUrl.replace('http://','').substring(0,28)}…)</option>
+            {microOn && Object.entries(MICROSERVICE_URLS).map(([k,v]) =>
+              <option key={k} value={k}>{k} ({v.replace('http://','').substring(0,28)})</option>
+            )}
+          </select>
+        </label>
+      </div>
+      <div className="preset-bar">
+        {EXPLORER_PRESETS.map(p => (
+          <button key={p.label} className="preset-chip" onClick={() => { setMethod(p.method); setPath(p.path); }}>{p.label}</button>
+        ))}
+      </div>
+      <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'center'}}>
+        <select className="select-input" style={{width:90}} value={method} onChange={e => setMethod(e.target.value)}>
+          {['GET','POST','PUT','DELETE','PATCH'].map(m => <option key={m}>{m}</option>)}
+        </select>
+        <input className="filter-input" style={{flex:1}} value={path} onChange={e => setPath(e.target.value)} placeholder="/path?param=value" />
+        <button className="btn-primary" onClick={send} disabled={busy}>{busy ? '…' : '▶ Send'}</button>
+      </div>
+      {['POST','PUT','PATCH'].includes(method) && (
+        <textarea className="json-input" rows={4} placeholder='{"key":"value"}' value={body} onChange={e => setBody(e.target.value)} />
+      )}
+      {(resp || status > 0) && (
+        <div className="response-box">
+          <div style={{color:statusColor, fontWeight:600, marginBottom:4}}>HTTP {status}</div>
+          <pre style={{margin:0, whiteSpace:'pre-wrap', wordBreak:'break-all'}}>{resp}</pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── App ──────────────────────────────────────────────────────────────────────
+export default function App() {
+  const [backendKey, setBackendKey] = useState(HOST === 'localhost' ? 'cmdline' : 'aws');
+  const baseUrl = BACKEND_PRESETS[backendKey] ?? BACKEND_PRESETS.aws;
+  const [online, setOnline]   = useState(null);
+  const [tab, setTab]         = useState('tables');
+  const [microOn, setMicroOn] = useState(true);
+
+  const payload  = decodeJwt(getToken() || '');
+  const username = payload?.username ?? payload?.name ?? payload?.sub ?? '';
+
+  useEffect(() => {
+    if (window.location.search.includes('sso='))
+      window.history.replaceState({}, '', window.location.pathname);
+  }, []);
+
+  useEffect(() => {
+    const check = () => fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000) }).then(r => setOnline(r.ok)).catch(() => setOnline(false));
+    check();
+    const id = setInterval(check, 30000);
+    return () => clearInterval(id);
+  }, [baseUrl]);
+
+  return (
+    <div className="app-shell">
+      <header className="header">
+        <div className="header-left">
+          <span className="logo">💜</span>
+          <div>
+            <div className="header-title">Healthcare API</div>
+            <div className="header-sub">Spring Boot + React</div>
+          </div>
+          <div className="backend-wrap">
+            <label className="label-sm">Backend</label>
+            <select className="select-input" value={backendKey} onChange={e => setBackendKey(e.target.value)}>
+              {Object.entries(BACKEND_PRESETS).map(([k,v]) =>
+                <option key={k} value={k}>{k} — {v.substring(0,35)}</option>
+              )}
             </select>
-          </label>
+          </div>
+          <StatusDot online={online} />
+        </div>
+        <div className="header-right">
+          <button className="btn-micro" onClick={() => setMicroOn(s => !s)}>⚡ Microservices {microOn?'ON':'OFF'}</button>
+          {username && <span className="username">👤 {username}</span>}
+          <button className="btn-logout" onClick={() => { clearToken(); window.location.href = LANDING; }}>⏏ Log out</button>
+        </div>
+      </header>
 
-          {selected.needsId && (
-            <label>
-              ID Parameter
-              <input
-                value={medicationId}
-                onChange={(event) => setMedicationId(event.target.value)}
-                placeholder="Enter id"
-              />
-            </label>
-          )}
-
-          {selected.needsMedicationPathId && (
-            <label>
-              Medication ID Parameter
-              <input
-                value={medicationPathId}
-                onChange={(event) => setMedicationPathId(event.target.value)}
-                placeholder="Enter medicationId"
-              />
-            </label>
-          )}
-
-          {selected.needsPatient && (
-            <label>
-              Patient Parameter
-              <input
-                value={patient}
-                onChange={(event) => setPatient(event.target.value)}
-                placeholder="Enter patient"
-              />
-            </label>
-          )}
-
-          {selected.needsCode && (
-            <label>
-              Code Parameter
-              <input
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                placeholder="Enter code"
-              />
-            </label>
-          )}
-
-          {selected.needsTopN && (
-            <label>
-              topN
-              <input
-                value={topN}
-                onChange={(event) => setTopN(event.target.value)}
-                placeholder="Enter topN"
-              />
-            </label>
-          )}
-
-          <div className="meta">Resolved URL: {resolvedUrlPreview}</div>
-
-          <button type="submit" disabled={isLoading}>
-            {isLoading ? 'Running...' : 'Invoke Selected API'}
-          </button>
-        </form>
-      </section>
-
-      <section className="panel result">
-        <h2>Response</h2>
-        <div className="status">Status: {status || 'No request yet'}</div>
-        {isLoading && (
-          <div className="progress-wrap" aria-live="polite" aria-label="Request in progress">
-            <div className="progress-bar" />
+      <div className="content">
+        {microOn && (
+          <div className="ms-panel">
+            <div className="ms-grid">
+              {Object.entries(MICROSERVICE_URLS).map(([k,v]) => <ServiceChip key={k} name={k} url={v} />)}
+            </div>
           </div>
         )}
-        <pre>{result}</pre>
-      </section>
 
-      {showLoaderModal && (
-        <div className="modal-backdrop" onClick={closeLoaderModal}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>DynamoDB Table Loader</h3>
-              <button type="button" onClick={closeLoaderModal}>
-                Close
-              </button>
-            </div>
-
-            <div className="form" style={{ marginTop: '0.75rem' }}>
-              <label>
-                DynamoDB Table Name
-                <input
-                  value={uploadTableName}
-                  onChange={(event) => setUploadTableName(event.target.value)}
-                  placeholder="Enter table name (e.g. medications, patients)"
-                />
-              </label>
-              <label>
-                Choose a file to upload to DynamoDB
-                <input type="file" accept=".csv,text/csv" onChange={handleFileSelection} />
-              </label>
-              <div className="meta">
-                {selectedFileName ? `Selected: ${selectedFileName}` : 'No file selected — backend default path will be used'}
-              </div>
-              <button
-                type="button"
-                disabled={isLoading}
-                onClick={uploadCsvToTable}
-              >
-                {isLoading ? 'Uploading...' : 'Upload CSV to DynamoDB'}
-              </button>
-              {!uploadTableName.trim() && (
-                <div className="meta" style={{ color: '#b45309' }}>Table name will be auto-generated from file name.</div>
-              )}
-
-              <h3 style={{ marginTop: '1rem' }}>DynamoDB Tables</h3>
-              {dynamoTables.length === 0 ? (
-                <div className="meta">No tables loaded yet. Upload a CSV or click refresh.</div>
-              ) : (
-                <div className="dynamo-table-grid" aria-label="DynamoDB table names">
-                  {dynamoTableRows.map((row, rowIndex) => (
-                    <div className="dynamo-table-row" key={`row-${rowIndex}`}>
-                      {row.map((tableName) => (
-                        <span className="dynamo-table-name" key={tableName}>{tableName}</span>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <button
-                type="button"
-                style={{ marginTop: '0.75rem' }}
-                onClick={() => loadDynamoTables(baseUrl)}
-              >
-                Refresh Table List
-              </button>
-            </div>
-          </div>
+        <div className="tabs-bar">
+          {[{id:'tables',label:'📋 DynamoDB Tables'},{id:'medications',label:'💊 Medications'},{id:'workflow',label:'⚙️ API Workflow'},{id:'explorer',label:'🔬 API Explorer'}].map(t => (
+            <button key={t.id} className={`tab-btn${tab===t.id?' active':''}`} onClick={() => setTab(t.id)}>{t.label}</button>
+          ))}
         </div>
-      )}
 
-      {showResponseModal && (
-        <div className="modal-backdrop" onClick={() => setShowResponseModal(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Response Items</h3>
-              <button type="button" onClick={() => setShowResponseModal(false)}>
-                Close
-              </button>
-            </div>
-
-            <div className="modal-table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    {tableColumns.map((column) => (
-                      <th key={column}>{column}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tableRows.map((row, index) => (
-                    <tr key={`${row.id || 'row'}-${index}`}>
-                      {tableColumns.map((column) => (
-                        <td key={column}>{getCellValue(row, column)}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        <div className="tab-content">
+          {tab==='tables'      && <TablesPanel      baseUrl={baseUrl} />}
+          {tab==='medications' && <MedicationsPanel baseUrl={baseUrl} />}
+          {tab==='workflow'    && <OnSubmitWorkflow baseUrl={baseUrl} token={getToken()} />}
+          {tab==='explorer'    && <ExplorerPanel    baseUrl={baseUrl} microOn={microOn} />}
         </div>
-      )}
-    </main>
+      </div>
+    </div>
   );
 }

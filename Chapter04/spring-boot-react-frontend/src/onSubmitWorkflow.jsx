@@ -1,5 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+const TOKEN_KEY = 'healthCareToken';
+function authHeaders() {
+  const t = localStorage.getItem(TOKEN_KEY);
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 const API_OPTIONS = [
   { id: 'getAll', label: 'GET /medications/', method: 'GET', path: '/medications/', needsBody: false, needsId: false, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: true, supportsQueryFilters: true, needsFileUpload: false },
   { id: 'getById', label: 'GET /medications/id/:id', method: 'GET', path: '/medications/id/{id}', needsBody: false, needsId: true, needsPatient: false, needsCode: false, needsMedicationPathId: false, needsTopN: false, supportsQueryFilters: false, needsFileUpload: false },
@@ -157,8 +163,13 @@ function inferTableNameFromFileName(fileName) {
   return baseName || 'uploaded_data';
 }
 
-export default function App() {
-  const [baseUrl, setBaseUrl] = useState('http://localhost:4001');
+export default function OnSubmitWorkflow({ baseUrl: initialBaseUrl }) {
+  const [baseUrl, setBaseUrl] = useState(initialBaseUrl || 'http://localhost:4004');
+
+  // Sync when parent switches backend preset
+  useEffect(() => {
+    if (initialBaseUrl) setBaseUrl(initialBaseUrl);
+  }, [initialBaseUrl]);
   const [selectedId, setSelectedId] = useState('getAll');
   const [medicationId, setMedicationId] = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -192,7 +203,7 @@ export default function App() {
   async function loadDynamoTables(currentBaseUrl) {
     try {
       const normalizedBase = (currentBaseUrl || baseUrl).trim().replace(/\/$/, '');
-      const response = await fetch(`${normalizedBase}/tables`);
+      const response = await fetch(`${normalizedBase}/tables`, { headers: authHeaders() });
       if (!response.ok) return;
       const data = await response.json();
       setDynamoTables(Array.isArray(data.tables) ? data.tables.sort() : []);
@@ -204,7 +215,7 @@ export default function App() {
   async function loadOptions(currentBaseUrl) {
     try {
       const normalizedBase = currentBaseUrl.trim().replace(/\/$/, '');
-      const response = await fetch(`${normalizedBase}/medications/?limit=250`);
+      const response = await fetch(`${normalizedBase}/medications/?limit=250`, { headers: authHeaders() });
 
       if (!response.ok) {
         return;
@@ -374,7 +385,7 @@ export default function App() {
 
     const normalizedBase = baseUrl.trim().replace(/\/$/, '');
     const url = normalizedBase + resolvedPath + requestQueryString;
-    const options = { method: selected.method, headers: {} };
+    const options = { method: selected.method, headers: { ...authHeaders() } };
 
     if (selected.needsFileUpload) {
       const payload = {};
