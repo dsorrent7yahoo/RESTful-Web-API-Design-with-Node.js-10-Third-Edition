@@ -45,7 +45,11 @@ export class AuthService {
   logout(baseUrl: string): void {
     this.http.post(`${baseUrl}/auth/logout`, {}).subscribe({ error: () => {} });
     this.clearToken();
-    this.router.navigate(['/login']);
+    // Return to the landing page (single sign-on portal) rather than the local login form
+    const landingPage = window.location.hostname === 'localhost'
+      ? 'http://localhost:5180'
+      : `http://${window.location.hostname}`;
+    window.location.href = landingPage;
   }
 
   getToken(): string | null { return localStorage.getItem(TOKEN_KEY); }
