@@ -266,7 +266,7 @@ function LoginGate({ onLogin, apps }) {
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>🏥</div>
-          <h1 style={{ color: '#f1f5f9', fontSize: '1.4rem', margin: 0 }}>Health Care Developer Web Site</h1>
+          <h1 style={{ color: '#f1f5f9', fontSize: '1.4rem', margin: 0 }}>Welcome to Dan Sorrentino's Portal for Development of Health Care Apps</h1>
           <p style={{ color: '#64748b', fontSize: '.875rem', marginTop: 4 }}>All data is synthetically generated</p>
         </div>
 
@@ -358,7 +358,7 @@ export default function App() {
           <div className="header-title">
             <span className="header-icon">🏥</span>
             <div>
-              <h1>Health Care Developer Web Site</h1>
+              <h1>Welcome to Dan Sorrentino's Portal for Development of Health Care Apps</h1>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
