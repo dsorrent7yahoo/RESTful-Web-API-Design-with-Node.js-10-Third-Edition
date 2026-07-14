@@ -118,8 +118,8 @@ const APPS = [
   },
   {
     id: 'springboot',
-    name: 'Spring Boot / ReactJs',
-    stack: 'Java · Spring Boot 3 · DynamoDB',
+    name: 'Spring Boot / Angular',
+    stack: 'Java · Spring Boot 3 · Angular · DynamoDB',
     icon: '🍃',
     gradient: 'linear-gradient(135deg, #6ee7b7, #059669)',
     accentColor: '#34d399',
