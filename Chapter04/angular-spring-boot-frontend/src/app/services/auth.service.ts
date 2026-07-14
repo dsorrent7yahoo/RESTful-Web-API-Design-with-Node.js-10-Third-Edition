@@ -6,6 +6,15 @@ import { Observable } from 'rxjs';
 
 const TOKEN_KEY = 'healthCareToken';
 
+/** Decode a JWT payload that is base64url-encoded (RFC 4648 §5).
+ *  Standard atob() only handles base64 (uses + / with padding); JWT uses - _ without padding. */
+function decodeJwtPayload(token: string): any {
+  const b64 = token.split('.')[1]
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+  return JSON.parse(atob(b64));
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   currentUser = signal<{ email: string; username: string } | null>(null);
@@ -14,9 +23,9 @@ export class AuthService {
     const token = this.getToken();
     if (token) {
       try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = decodeJwtPayload(token);
         if (payload.exp * 1000 > Date.now()) {
-          this.currentUser.set({ email: payload.sub, username: payload.username });
+          this.currentUser.set({ email: payload.sub, username: payload.username ?? payload.name });
         } else {
           this.clearToken();
         }
@@ -45,7 +54,7 @@ export class AuthService {
     const token = this.getToken();
     if (!token) return false;
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = decodeJwtPayload(token);
       return payload.exp * 1000 > Date.now();
     } catch { return false; }
   }

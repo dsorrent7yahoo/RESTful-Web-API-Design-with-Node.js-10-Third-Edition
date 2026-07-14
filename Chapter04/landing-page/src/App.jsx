@@ -12,8 +12,8 @@ const APPS = [
     icon: '🧠',
     gradient: 'linear-gradient(135deg, #7c3aed, #4c1d95)',
     accentColor: '#a78bfa',
-    frontendUrl: `http://${HOST}:5000`,
-    apiUrl: `http://${HOST}:5000`,
+    frontendUrl: `http://${HOST}:5050`,
+    apiUrl: `http://${HOST}:5050`,
     healthPath: '/health',
     description:
       'RAG-powered clinical decision support — FDA drug labels indexed with ClinicalBERT, queried via AWS Bedrock Claude Sonnet 4.6. Covers pharmacist DRP review, natural-language EHR querying, and evidence-based diagnosis support.',
@@ -180,8 +180,9 @@ function StatusDot({ url, healthPath }) {
   );
 }
 
-// ── Single app card ──────────────────────────────────────────────────────────
-function AppCard({ app }) {
+// ── AppCard ─────────────────────────────────────────────────────────────────
+function AppCard({ app, token }) {
+  const launchHref = token ? `${app.frontendUrl}?sso=${encodeURIComponent(token)}` : app.frontendUrl;
   return (
     <div className="app-card">
       <div className="app-card-header" style={{ background: app.gradient }}>
@@ -209,7 +210,7 @@ function AppCard({ app }) {
       <div className="app-card-footer">
         <p className="app-port-note">{app.portNote}</p>
         <a
-          href={app.frontendUrl}
+          href={launchHref}
           target="_blank"
           rel="noreferrer"
           className="launch-btn"
@@ -223,10 +224,11 @@ function AppCard({ app }) {
 }
 
 // ── Login gate ───────────────────────────────────────────────────────────────
-const GW = `http://${HOST}:8080`;
+// VITE_GATEWAY_URL is empty in the standalone portal image (uses same origin /api)
+const GW = import.meta.env.VITE_GATEWAY_URL ?? `http://${HOST}:8080`;
 const TOKEN_KEY = 'healthcare_gw_token';
 
-function LoginGate({ onLogin }) {
+function LoginGate({ onLogin, apps }) {
   const [user, setUser]   = useState('admin');
   const [pass, setPass]   = useState('');
   const [err,  setErr]    = useState('');
@@ -235,6 +237,11 @@ function LoginGate({ onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setBusy(true); setErr('');
+
+    // Open blank windows synchronously here (direct user-gesture — browsers allow it).
+    // If the fetch fails we close them; if it succeeds we navigate to each app.
+    const appWindows = apps.map((app) => window.open('about:blank', `app_${app.id}`));
+
     try {
       const res = await fetch(`${GW}/api/auth/login`, {
         method: 'POST',
@@ -244,8 +251,16 @@ function LoginGate({ onLogin }) {
       const data = await res.json();
       if (!res.ok || !data.token) throw new Error(data.message || data.detail || 'Login failed');
       sessionStorage.setItem(TOKEN_KEY, data.token);
+
+      // Navigate pre-opened windows to their actual frontend URLs with SSO token
+      const tok = data.token;
+      appWindows.forEach((w, i) => {
+        if (w) w.location.href = `${apps[i].frontendUrl}?sso=${encodeURIComponent(tok)}`;
+      });
+
       onLogin(data.token, data.user);
     } catch (ex) {
+      appWindows.forEach((w) => w?.close()); // clean up blanks on failure
       setErr(ex.message);
     } finally {
       setBusy(false);
@@ -263,8 +278,8 @@ function LoginGate({ onLogin }) {
       }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div style={{ fontSize: 48, marginBottom: 8 }}>🏥</div>
-          <h1 style={{ color: '#f1f5f9', fontSize: '1.4rem', margin: 0 }}>Healthcare API Demo</h1>
-          <p style={{ color: '#64748b', fontSize: '.875rem', marginTop: 4 }}>Sign in to continue</p>
+          <h1 style={{ color: '#f1f5f9', fontSize: '1.4rem', margin: 0 }}>Health Care Developer Web Site</h1>
+          <p style={{ color: '#64748b', fontSize: '.875rem', marginTop: 4 }}>All data is synthetically generated</p>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -315,12 +330,25 @@ function LoginGate({ onLogin }) {
 }
 
 // ── Root ─────────────────────────────────────────────────────────────────────
+function decodeJwtPayload(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(b64));
+  } catch { return null; }
+}
+
 export default function App() {
   const [token, setToken] = useState(() => sessionStorage.getItem(TOKEN_KEY));
-  const [authUser, setAuthUser] = useState(null);
+  const [authUser, setAuthUser] = useState(() => {
+    const stored = sessionStorage.getItem(TOKEN_KEY);
+    if (!stored) return null;
+    const payload = decodeJwtPayload(stored);
+    if (!payload || payload.exp * 1000 <= Date.now()) return null;
+    return { username: payload.username ?? payload.sub, role: payload.role };
+  });
 
   if (!token) {
-    return <LoginGate onLogin={(t, u) => { setToken(t); setAuthUser(u); }} />;
+    return <LoginGate onLogin={(t, u) => { setToken(t); setAuthUser(u); }} apps={APPS} />;
   }
 
   const logout = () => { sessionStorage.removeItem(TOKEN_KEY); setToken(null); };
@@ -333,7 +361,7 @@ export default function App() {
           <div className="header-title">
             <span className="header-icon">🏥</span>
             <div>
-              <h1>Healthcare API Demo</h1>
+              <h1>Health Care Developer Web Site</h1>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -359,7 +387,7 @@ export default function App() {
       <main className="main">
         <div className="cards-grid">
           {APPS.map((app) => (
-            <AppCard key={app.id} app={app} />
+            <AppCard key={app.id} app={app} apps={APPS} token={token} />
           ))}
         </div>
 
