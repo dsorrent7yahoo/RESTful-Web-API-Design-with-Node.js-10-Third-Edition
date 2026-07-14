@@ -9,8 +9,12 @@
  */
 
 const { createProxyMiddleware } = require('http-proxy-middleware');
-const { SERVICES }    = require('./registry');
+const jwt           = require('jsonwebtoken');
+const { SERVICES }  = require('./registry');
 const { requireAuth } = require('./auth');
+
+// Secret used by all downstream microservices — must match their JWT_SECRET env var
+const DOWNSTREAM_SECRET = process.env.JWT_SECRET || 'healthcare-ec2-dev-secret';
 
 function mountProxies(app) {
   Object.entries(SERVICES).forEach(([key, svc]) => {
@@ -46,10 +50,20 @@ function mountProxies(app) {
         }
         res.end(body);
       },
-      onProxyReq(proxyReq) {
+      onProxyReq(proxyReq, req) {
         // Add tracing headers so downstream services know they came through the gateway
         proxyReq.setHeader('X-Gateway-Service', key);
         proxyReq.setHeader('X-Gateway-Version', '1.0');
+        // Re-sign the token with JWT_SECRET so microservices can verify it.
+        // The gateway already validated the incoming token; req.user is set.
+        if (req.user) {
+          const downstream = jwt.sign(
+            { sub: req.user.sub, email: req.user.sub, role: req.user.role || 'admin', scopes: req.user.scopes || [] },
+            DOWNSTREAM_SECRET,
+            { expiresIn: '1h' }
+          );
+          proxyReq.setHeader('Authorization', `Bearer ${downstream}`);
+        }
       },
     });
 
