@@ -348,7 +348,16 @@ export default function App() {
   });
 
   if (!token) {
-    return <LoginGate onLogin={(t, u) => { setToken(t); setAuthUser(u); }} apps={APPS} />;
+    return <LoginGate onLogin={(t, u) => {
+      setToken(t);
+      // API Gateway returns { token, role, name } with no `user` field — decode from JWT
+      if (u) {
+        setAuthUser(u);
+      } else {
+        const p = decodeJwtPayload(t);
+        setAuthUser(p ? { username: p.username ?? p.name ?? p.sub, role: p.role } : null);
+      }
+    }} apps={APPS} />;
   }
 
   const logout = () => { sessionStorage.removeItem(TOKEN_KEY); setToken(null); };
