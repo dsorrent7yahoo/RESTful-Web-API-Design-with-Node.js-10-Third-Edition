@@ -238,10 +238,6 @@ function LoginGate({ onLogin, apps }) {
     e.preventDefault();
     setBusy(true); setErr('');
 
-    // Open blank windows synchronously here (direct user-gesture — browsers allow it).
-    // If the fetch fails we close them; if it succeeds we navigate to each app.
-    const appWindows = apps.map((app) => window.open('about:blank', `app_${app.id}`));
-
     try {
       const res = await fetch(`${GW}/api/auth/login`, {
         method: 'POST',
@@ -251,16 +247,8 @@ function LoginGate({ onLogin, apps }) {
       const data = await res.json();
       if (!res.ok || !data.token) throw new Error(data.message || data.detail || 'Login failed');
       sessionStorage.setItem(TOKEN_KEY, data.token);
-
-      // Navigate pre-opened windows to their actual frontend URLs with SSO token
-      const tok = data.token;
-      appWindows.forEach((w, i) => {
-        if (w) w.location.href = `${apps[i].frontendUrl}?sso=${encodeURIComponent(tok)}`;
-      });
-
       onLogin(data.token, data.user);
     } catch (ex) {
-      appWindows.forEach((w) => w?.close()); // clean up blanks on failure
       setErr(ex.message);
     } finally {
       setBusy(false);
