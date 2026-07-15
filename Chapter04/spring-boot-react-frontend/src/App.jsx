@@ -111,7 +111,7 @@ function MedicationsPanel({ baseUrl }) {
 
   const load = useCallback(() => {
     setLoading(true);
-    apiFetch(`${baseUrl}/medications/?limit=200`).then(d => setRows(Array.isArray(d) ? d : d.medications || [])).catch(() => setRows([])).finally(() => setLoading(false));
+    apiFetch(`${baseUrl}/medications/?limit=200`).then(d => setRows(Array.isArray(d) ? d : d.items || d.medications || d.data || [])).catch(() => setRows([])).finally(() => setLoading(false));
   }, [baseUrl]);
   useEffect(() => { load(); }, [load]);
 
