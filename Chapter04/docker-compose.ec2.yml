@@ -330,6 +330,9 @@ services:
     environment:
       AWS_REGION: us-east-1
       JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
+      # Spring Boot reads healthcare.jwt.secret via HEALTHCARE_JWT_SECRET env binding
+      # This aligns the Spring Boot JWT validation secret with what the API gateway proxy sends
+      HEALTHCARE_JWT_SECRET: ${JWT_SECRET:-healthcare-ec2-dev-secret}
       SPRING_PROFILES_ACTIVE: docker
     restart: unless-stopped
     healthcheck:

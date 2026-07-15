@@ -9,7 +9,7 @@ spring:
 
 healthcare:
   jwt:
-    secret: health-care-dev-secret
+    secret: ${JWT_SECRET:${HEALTHCARE_JWT_SECRET:health-care-dev-secret}}
     expiration-minutes: 60
   aws:
     region: us-east-1
