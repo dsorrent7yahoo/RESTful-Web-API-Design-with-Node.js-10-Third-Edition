@@ -61,7 +61,9 @@ function StatusDot({ online }) {
 function ServiceChip({ name, url }) {
   const [ok, setOk] = useState(null);
   useEffect(() => {
-    const check = () => fetch(`${url}/health`, { signal: AbortSignal.timeout(3000) }).then(r => setOk(r.ok)).catch(() => setOk(false));
+    const token = getToken();
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const check = () => fetch(`${url}/health`, { signal: AbortSignal.timeout(3000), headers }).then(r => setOk(r.ok)).catch(() => setOk(false));
     check();
     const id = setInterval(check, 30000);
     return () => clearInterval(id);
@@ -252,7 +254,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const check = () => fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000) }).then(r => setOnline(r.ok)).catch(() => setOnline(false));
+    const check = () => {
+      const token = getToken();
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(4000), headers }).then(r => setOnline(r.ok)).catch(() => setOnline(false));
+    };
     check();
     const id = setInterval(check, 30000);
     return () => clearInterval(id);
