@@ -86,9 +86,149 @@ resource "aws_ecr_lifecycle_policy" "app" {
 # ─────────────────────────────────────────────────────────────────────────────
 # CloudWatch Logs
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Container stdout/stderr — every Flask log line lands here
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/${local.app_name}"
   retention_in_days = 30
+}
+
+# ECS lifecycle events (PROVISIONING → PENDING → RUNNING → STOPPED)
+# Written by EventBridge; captures each bootup step at the control-plane level
+resource "aws_cloudwatch_log_group" "ecs_events" {
+  name              = "/ecs/${local.app_name}/events"
+  retention_in_days = 30
+}
+
+# Allow EventBridge to deliver events into the lifecycle log group
+resource "aws_cloudwatch_log_resource_policy" "eventbridge_ecs" {
+  policy_name = "${var.name_prefix}-eventbridge-ecs-log-policy"
+
+  policy_document = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EventBridgeToCloudWatchLogs"
+        Effect = "Allow"
+        Principal = {
+          Service = "events.amazonaws.com"
+        }
+        Action   = ["logs:CreateLogStream", "logs:PutLogEvents"]
+        Resource = "${aws_cloudwatch_log_group.ecs_events.arn}:*"
+      }
+    ]
+  })
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# EventBridge — ECS bootup / lifecycle events → CloudWatch Logs
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Step 1 – Task state changes: PROVISIONING → PENDING → RUNNING / STOPPED
+resource "aws_cloudwatch_event_rule" "ecs_task_state" {
+  name        = "${var.name_prefix}-ecs-task-state"
+  description = "Log every ECS task lifecycle state change (bootup and shutdown)"
+
+  event_pattern = jsonencode({
+    source      = ["aws.ecs"]
+    "detail-type" = ["ECS Task State Change"]
+    detail = {
+      clusterArn = [aws_ecs_cluster.app.arn]
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "ecs_task_state_to_cw" {
+  rule      = aws_cloudwatch_event_rule.ecs_task_state.name
+  target_id = "ECSTaskStateToCloudWatch"
+  arn       = aws_cloudwatch_log_group.ecs_events.arn
+}
+
+# Step 2 – Deployment state changes: IN_PROGRESS → COMPLETED / FAILED
+resource "aws_cloudwatch_event_rule" "ecs_deployment" {
+  name        = "${var.name_prefix}-ecs-deployment"
+  description = "Log ECS service deployment lifecycle (boot initiated, completed, failed)"
+
+  event_pattern = jsonencode({
+    source      = ["aws.ecs"]
+    "detail-type" = ["ECS Deployment State Change"]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "ecs_deployment_to_cw" {
+  rule      = aws_cloudwatch_event_rule.ecs_deployment.name
+  target_id = "ECSDeploymentToCloudWatch"
+  arn       = aws_cloudwatch_log_group.ecs_events.arn
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CloudWatch — Metric filters on container log group
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Detects Python errors / tracebacks emitted during Flask startup
+resource "aws_cloudwatch_log_metric_filter" "startup_errors" {
+  name           = "${var.name_prefix}-startup-errors"
+  log_group_name = aws_cloudwatch_log_group.app.name
+  pattern        = "?ERROR ?Exception ?Traceback ?CRITICAL"
+
+  metric_transformation {
+    name          = "StartupErrorCount"
+    namespace     = "${var.name_prefix}/ECS"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+# Counts successful ALB health-check responses — confirms the app is up
+resource "aws_cloudwatch_log_metric_filter" "health_check_ok" {
+  name           = "${var.name_prefix}-healthcheck-ok"
+  log_group_name = aws_cloudwatch_log_group.app.name
+  pattern        = "GET /health 200"
+
+  metric_transformation {
+    name          = "HealthCheckOK"
+    namespace     = "${var.name_prefix}/ECS"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CloudWatch — Alarms for bootup failures
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Fires when any ERROR / Exception / CRITICAL line appears in the container log
+resource "aws_cloudwatch_metric_alarm" "startup_errors" {
+  alarm_name          = "${var.name_prefix}-startup-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "StartupErrorCount"
+  namespace           = "${var.name_prefix}/ECS"
+  period              = 60
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "ERROR / Exception / CRITICAL detected in container log — probable startup failure"
+  treat_missing_data  = "notBreaching"
+}
+
+# Fires when the running task count drops to zero — crash loop or failed boot
+resource "aws_cloudwatch_metric_alarm" "task_running_zero" {
+  alarm_name          = "${var.name_prefix}-task-running-zero"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  namespace           = "ECS/ContainerInsights"
+  metric_name         = "RunningTaskCount"
+
+  dimensions = {
+    ClusterName = aws_ecs_cluster.app.name
+    ServiceName = local.ecs_service_name
+  }
+
+  period             = 60
+  statistic          = "Minimum"
+  threshold          = 0
+  alarm_description  = "Running task count is zero — the container failed to boot or crashed"
+  treat_missing_data = "breaching"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

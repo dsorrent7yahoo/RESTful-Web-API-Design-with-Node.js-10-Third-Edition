@@ -32,3 +32,23 @@ output "github_actions_role_arn" {
   description = "IAM role ARN for GitHub Actions OIDC — store as AWS_ROLE_ARN repository secret"
   value       = aws_iam_role.github_actions.arn
 }
+
+output "cloudwatch_log_group_app" {
+  description = "CloudWatch log group for container stdout/stderr (Flask application logs)"
+  value       = aws_cloudwatch_log_group.app.name
+}
+
+output "cloudwatch_log_group_events" {
+  description = "CloudWatch log group for ECS lifecycle events (bootup steps, deployment state)"
+  value       = aws_cloudwatch_log_group.ecs_events.name
+}
+
+output "cloudwatch_alarm_startup_errors" {
+  description = "CloudWatch alarm name — triggers on ERROR/Exception/CRITICAL in container logs"
+  value       = aws_cloudwatch_metric_alarm.startup_errors.alarm_name
+}
+
+output "cloudwatch_alarm_task_running_zero" {
+  description = "CloudWatch alarm name — triggers when running task count drops to zero"
+  value       = aws_cloudwatch_metric_alarm.task_running_zero.alarm_name
+}
