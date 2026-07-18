@@ -1,4 +1,5 @@
 name: flask-fargate-ecs
+# retrigger: keep file touched for path-filtered push events
 
 on:
   push:
