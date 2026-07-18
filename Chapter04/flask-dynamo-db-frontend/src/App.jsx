@@ -1,5 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ApiExplorerModal from './ApiExplorerModal';
+
+// ── SSO bootstrap — reads ?sso= JWT injected by the landing-page card link ──
+// Runs at module level (before first render) so useState initialisers below
+// read the already-written localStorage values and skip the login form.
+;(function applySSOToken() {
+  const params = new URLSearchParams(window.location.search);
+  const sso = params.get('sso');
+  if (!sso) return;
+  localStorage.setItem('healthCareToken', sso);
+  localStorage.setItem('healthCareSSOMode', 'docker');
+  params.delete('sso');
+  const qs = params.toString();
+  window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : ''));
+})();
 import SwaggerDocsButton from './SwaggerDocsButton';
 import DocsSourceModal from './DocsSourceModal';
 import FileContentViewer from './FileContentViewer';
@@ -102,15 +116,17 @@ const TABLE_COLUMNS = [
   'dispenses', 'totalCost', 'reasonCode', 'reasonDescription',
 ];
 
-// True when the page is served from a remote host (EC2, Fargate, any non-localhost)
+// True when the page is served from a remote host (Fargate or any non-localhost)
 const IS_FARGATE = !['localhost', '127.0.0.1'].includes(window.location.hostname);
-// Single gateway entry point — auto-derives the host so no hardcoded IP is needed
-const GATEWAY_ORIGIN = `${window.location.protocol}//${window.location.hostname}:8080`;
+// Allow explicit API base URL override for deployed environments.
+const DEPLOYED_FLASK_ORIGIN = (import.meta.env.VITE_FLASK_API_URL || window.location.origin)
+  .trim()
+  .replace(/\/$/, '');
 
 const BACKEND_PRESETS = {
   cmdline: 'http://localhost:4001',   // python app.py
   docker:  'http://localhost:4001',   // docker compose
-  aws:     `${GATEWAY_ORIGIN}/proxy/flask`,
+  aws:     DEPLOYED_FLASK_ORIGIN,
 };
 // Landing page: port 5180 locally, root domain on EC2 / production
 const LANDING_URL = window.location.hostname === 'localhost'
@@ -214,7 +230,7 @@ function defaultBodyFor(id) {
 // Component
 // ---------------------------------------------------------------------------
 export default function App() {
-  const [authToken, setAuthToken]               = useState('');
+  const [authToken, setAuthToken]               = useState(() => localStorage.getItem('healthCareToken') || '');
   const [loginEmail, setLoginEmail]             = useState('react-dgs@yahoo.com');
   const [loginPassword, setLoginPassword]       = useState('python');
   const [loginStatus, setLoginStatus]           = useState('');
@@ -222,7 +238,7 @@ export default function App() {
 
   const [baseUrl, setBaseUrl]                   = useState(IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline);
   const [backendMode, setBackendMode]           = useState(IS_FARGATE ? 'aws' : 'cmdline');
-  const [loginMode, setLoginMode]               = useState(null);
+  const [loginMode, setLoginMode]               = useState(() => localStorage.getItem('healthCareSSOMode') || null);
   const [selectedId, setSelectedId]             = useState('getAll');
   const [medicationId, setMedicationId]         = useState('');
   const [medicationPathId, setMedicationPathId] = useState('');
@@ -386,6 +402,7 @@ export default function App() {
 
   function handleLogout() {
     localStorage.removeItem('healthCareToken');
+    localStorage.removeItem('healthCareSSOMode');
     setAuthToken('');
     setLoginMode(null);
     setLoginStatus('Logged out');
