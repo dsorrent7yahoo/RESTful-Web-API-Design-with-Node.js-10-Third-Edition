@@ -2,7 +2,7 @@ name: flask-fargate-ecs
 
 on:
   push:
-    branches: [master, main, appmod/java-upgrade-20260716004919, flask-fargate-ecs]
+    branches: [master, main, appmod/java-upgrade-20260716004919, flask-fargate-ecs, dynamodb-react]
     paths:
       - "Chapter04/flask-dynamo-db-backend/**"
       - "Chapter04/flask-dynamo-db-frontend/**"
