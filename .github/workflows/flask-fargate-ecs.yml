@@ -75,7 +75,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -115,7 +115,7 @@ jobs:
       - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Fetch current task definition from ECS
