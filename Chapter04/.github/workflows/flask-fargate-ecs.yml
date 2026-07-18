@@ -2,7 +2,7 @@ name: flask-fargate-ecs
 
 on:
   push:
-    branches: [master, main, appmod/java-upgrade-20260716004919]
+    branches: [master, main, appmod/java-upgrade-20260716004919, flask-fargate-ecs]
     paths:
       - "flask-dynamo-db-backend/**"
       - "infra/terraform/flask-fargate-ecs/**"
