@@ -118,6 +118,13 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN || secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Ensure ECS service has at least one running task
+        run: |
+          aws ecs update-service \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ env.ECS_SERVICE }}" \
+            --desired-count 1 > /dev/null
+
       - name: Fetch current task definition from ECS
         run: |
           aws ecs describe-task-definition \
