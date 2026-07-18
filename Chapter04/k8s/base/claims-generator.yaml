@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-generator
+  namespace: healthcare
+  labels:
+    app: claims-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claims-generator
+  template:
+    metadata:
+      labels:
+        app: claims-generator
+    spec:
+      containers:
+        - name: claims-generator
+          image: localhost:5000/claims-generator:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4011
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4011
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4011
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-generator
+  namespace: healthcare
+spec:
+  selector:
+    app: claims-generator
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4011
+      targetPort: 4011
+      nodePort: 30001

@@ -1,0 +1,10 @@
+# Terraform provider cache and binaries
+.terraform/
+.terraform.lock.hcl
+
+# State files — store in S3 backend for shared use
+terraform.tfstate
+terraform.tfstate.backup
+
+# Local variable overrides — may contain sensitive values
+terraform.tfvars

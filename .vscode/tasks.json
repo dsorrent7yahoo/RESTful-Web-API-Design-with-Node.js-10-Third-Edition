@@ -1,0 +1,175 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Spring Backend: Run (8080)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Run Standalone (8081)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.arguments=--server.port=8081"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Debug (8080)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.jvmArguments=\"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5005\""
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Spring Backend: Debug Standalone (8081)",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set \"JAVA_HOME=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\" && set \"PATH=C:\\Program Files\\Amazon Corretto\\jdk17.0.18_8\\bin;%PATH%\" && cd /d \"${workspaceFolder}\\Chapter04\\fhirstarters\\java\\spring-dynamodb-backend\" && mvn.cmd -DskipTests spring-boot:run -Dspring-boot.run.arguments=--server.port=8081 -Dspring-boot.run.jvmArguments=\"-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=5006\""
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+
+    // ── Flask: local development ──────────────────────────────────────────────
+    {
+      "label": "Flask: Install Dependencies",
+      "type": "shell",
+      "command": "pip install -r requirements.txt pytest pytest-cov \"moto[dynamodb]\"",
+      "options": { "cwd": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Flask: Run Tests",
+      "type": "shell",
+      "command": "pytest tests/ -v --tb=short --cov=. --cov-report=term-missing",
+      "options": {
+        "cwd": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend",
+        "env": {
+          "AWS_DEFAULT_REGION": "us-east-1",
+          "AWS_ACCESS_KEY_ID": "test",
+          "AWS_SECRET_ACCESS_KEY": "test",
+          "DYNAMODB_TABLE": "medications-test",
+          "JWT_SECRET": "test-secret-for-ci",
+          "AUTO_CREATE_CSV_TABLES": "false",
+          "PORT": "4001"
+        }
+      },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+
+    // ── Flask: Docker Desktop (local — no real AWS) ───────────────────────────
+    {
+      "label": "Flask: Run in Docker Desktop (DynamoDB Local)",
+      "type": "shell",
+      "command": "docker compose -f C:/temp/flask-local/docker-compose.yml up --build",
+      "options": { "cwd": "${workspaceFolder}/Chapter04" },
+      "isBackground": true,
+      "problemMatcher": [
+        {
+          "pattern": { "regexp": "." },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "Starting",
+            "endsPattern": "Listening on"
+          }
+        }
+      ],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "Flask: Stop Docker Desktop",
+      "type": "shell",
+      "command": "docker compose -f C:/temp/flask-local/docker-compose.yml down -v",
+      "options": { "cwd": "${workspaceFolder}/Chapter04" },
+      "problemMatcher": []
+    },
+
+    // ── Flask: Docker image build ─────────────────────────────────────────────
+    {
+      "label": "Flask: Build Docker Image",
+      "type": "shell",
+      "command": "docker build -f flask-dynamo-db-backend/Dockerfile -t chapter04-flask-dynamo-db-backend:local .",
+      "options": { "cwd": "${workspaceFolder}/Chapter04" },
+      "group": "build",
+      "problemMatcher": []
+    },
+
+    // ── Terraform ─────────────────────────────────────────────────────────────
+    {
+      "label": "Terraform: Init",
+      "type": "shell",
+      "command": "cmd /c \"set AWS_PROFILE=default && terraform init\"",
+      "options": { "cwd": "${workspaceFolder}/Chapter04/infra/terraform/flask-fargate-ecs" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Terraform: Plan",
+      "type": "shell",
+      "command": "cmd /c \"set AWS_PROFILE=default && terraform plan\"",
+      "options": { "cwd": "${workspaceFolder}/Chapter04/infra/terraform/flask-fargate-ecs" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Terraform: Apply",
+      "type": "shell",
+      "command": "cmd /c \"set AWS_PROFILE=default && terraform apply -auto-approve\"",
+      "options": { "cwd": "${workspaceFolder}/Chapter04/infra/terraform/flask-fargate-ecs" },
+      "group": "build",
+      "problemMatcher": []
+    },
+
+    // ── ECR push + Fargate deploy ─────────────────────────────────────────────
+    {
+      "label": "Flask: Push Image to ECR",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set AWS_PROFILE=default && aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 005905648819.dkr.ecr.us-east-1.amazonaws.com && docker build -f flask-dynamo-db-backend/Dockerfile -t 005905648819.dkr.ecr.us-east-1.amazonaws.com/sorrentino-fargate-fhir-demo-repo:latest . && docker push 005905648819.dkr.ecr.us-east-1.amazonaws.com/sorrentino-fargate-fhir-demo-repo:latest"
+      ],
+      "options": { "cwd": "${workspaceFolder}/Chapter04" },
+      "group": "build",
+      "problemMatcher": [],
+      "dependsOn": ["Flask: Run Tests"]
+    },
+    {
+      "label": "Flask: Deploy to Fargate",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "set AWS_PROFILE=default && aws ecs update-service --cluster sorrentino-fargate-fhir-demo-cluster --service sorrentino-fargate-fhir-demo-service --force-new-deployment --region us-east-1"
+      ],
+      "options": { "cwd": "${workspaceFolder}/Chapter04" },
+      "group": "build",
+      "problemMatcher": [],
+      "dependsOn": ["Flask: Push Image to ECR"]
+    },
+    {
+      "label": "Flask: Full Deploy (Test → ECR → Fargate)",
+      "dependsOn": ["Flask: Deploy to Fargate"],
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

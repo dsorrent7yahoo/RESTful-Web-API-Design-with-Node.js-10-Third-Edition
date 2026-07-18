@@ -1,0 +1,57 @@
+# docker-compose.ec2.local.yml — LOCAL SIMULATION OVERRIDE
+#
+# Extends docker-compose.ec2.yml for running the EC2 stack on a developer machine.
+# On EC2 the IAM instance profile provides AWS credentials automatically.
+# Locally we inject them via ~/.aws volume mounts and env vars.
+#
+# Usage:
+#   docker compose -f docker-compose.ec2.yml -f docker-compose.ec2.local.yml up -d --build
+#
+# Port map (local):
+#   http://localhost       — Landing page  (port 80)
+#   http://localhost:5180  — Landing page  (port 5180, alias for local dev)
+#   http://localhost:8080  — API Gateway   (single authenticated entry point)
+#   http://localhost:4001  — Flask (backend + React frontend bundled)
+#   http://localhost:3002  — Node.js React frontend
+#   http://localhost:4003  — Node.js backend API
+#   http://localhost:3003  — Django React frontend
+#   http://localhost:4002  — Django backend API
+
+services:
+
+  # Expose landing page on :5180 as well so the local logout-redirect works
+  landing:
+    ports:
+      - "5180:80"
+
+  # Flask — Python runs as root, so /root/.aws resolves correctly
+  flask-backend:
+    volumes:
+      - "${HOME}/.aws:/root/.aws:ro"
+
+  # Node — distroless image runs as nonroot user; use AWS_SHARED_CREDENTIALS_FILE
+  # so the SDK finds credentials regardless of $HOME
+  node-backend:
+    volumes:
+      - "${HOME}/.aws:/aws-creds:ro"
+    environment:
+      AWS_SHARED_CREDENTIALS_FILE: /aws-creds/credentials
+      AWS_CONFIG_FILE: /aws-creds/config
+
+  # Django — Python runs as root
+  django-backend:
+    volumes:
+      - "${HOME}/.aws:/root/.aws:ro"
+
+  # RAG API — mount ~/.aws for local credential access
+  rag-api:
+    volumes:
+      - "${HOME}/.aws:/root/.aws:ro"
+    environment:
+      RAG_LLM_BACKEND: bedrock
+      RAG_LLM_MODEL: amazon.nova-pro-v1:0
+      RAG_EMBED_BACKEND: clinicalbert
+      RAG_VECTOR_BACKEND: memory
+      RAG_MEMORY_STORE_PATH: /tmp/rag-memory-store.pkl
+    ports:
+      - "4005:4005"

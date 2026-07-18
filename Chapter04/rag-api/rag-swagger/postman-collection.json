@@ -1,0 +1,1679 @@
+{
+  "info": {
+    "name": "Healthcare RAG API",
+    "description": "## Retrieval-Augmented Generation for Clinical Medication Intelligence\n\nThis API indexes five healthcare corpora and answers clinical questions grounded in retrieved evidence, with source citations and hallucination detection.\n\n### Corpus Shards\n| Shard | Source | DynamoDB Table |\n|---|---|---|\n| `medications` | Synthea Coherent dataset | `medications` |\n| `fda-labels` | FDA OpenFDA API | derived from `medications` |\n| `snomed` | UMLS Metathesaurus | `conditions` |\n| `loinc` | Regenstrief LOINC table | `observations` |\n| `guidelines` | WHO / NIH PDFs | external URL |\n\n### Authentication\nAll `/rag/*` endpoints require `Authorization: Bearer <jwt>`. Obtain a token from `POST /login` on the Flask backend (port 4001). `GET /health` is open.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "healthcare-rag-api-v1"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{RAG_JWT}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "RAG_BASE_URL",
+      "value": "http://localhost:4005",
+      "type": "string"
+    },
+    {
+      "key": "RAG_JWT",
+      "value": "<paste-jwt-from-POST-/login>",
+      "type": "string"
+    },
+    {
+      "key": "PATIENT_ID",
+      "value": "8b0484cd-3dbd-8b8d-1b72-a32f74a5a846",
+      "type": "string"
+    },
+    {
+      "key": "PHARMACIST_URL",
+      "value": "http://localhost:4006",
+      "type": "string"
+    },
+    {
+      "key": "EHR_QUERY_URL",
+      "value": "http://localhost:4007",
+      "type": "string"
+    },
+    {
+      "key": "DIAGNOSIS_URL",
+      "value": "http://localhost:4008",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/health",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "No auth required. Returns service status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RAG \u2014 Query (WITH patient_id)",
+      "description": "Standard query endpoints \u2014 include optional patient_id for PACE-RAG and index_filter for shard targeting.",
+      "item": [
+        {
+          "name": "Standard Query \u2014 patient_id optional",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query"
+              ]
+            },
+            "description": "Full query with optional patient context. Omit patient_id to query anonymously.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is Metformin prescribed for?\",\n  \"mode\": \"standard\",\n  \"top_k\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Patient-Aware Query (PACE-RAG)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query"
+              ]
+            },
+            "description": "Set patient_id to load patient EHR context (medications, conditions, observations) from DynamoDB.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What medications should be avoided for this patient?\",\n  \"patient_id\": \"{{PATIENT_ID}}\",\n  \"mode\": \"copilot\",\n  \"top_k\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "SQL Mode \u2014 NL to PartiQL",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query"
+              ]
+            },
+            "description": "Generates DynamoDB PartiQL. patient_id optional.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Find patients on Warfarin prescribed after 2015 with cost over 100\",\n  \"mode\": \"sql\",\n  \"top_k\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Diagnosis Mode \u2014 CPG-Grounded",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query"
+              ]
+            },
+            "description": "GARMLE-G diagnosis with optional patient context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Patient HbA1c 7.2%, on Metformin 500mg \\u2014 confirm diagnosis\",\n  \"mode\": \"diagnosis\",\n  \"top_k\": 5,\n  \"index_filter\": \"loinc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RAG \u2014 Query (NO ID required)",
+      "description": "ID-free query \u2014 no patient_id, no index_filter, no table_name. Simplest way to query.",
+      "item": [
+        {
+          "name": "Simple Query \u2014 no IDs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query/simple",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query",
+                "simple"
+              ]
+            },
+            "description": "Minimal request body: just question, mode, top_k. No patient_id, no shard filter.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"What is the normal HbA1c range?\",\n  \"mode\": \"standard\",\n  \"top_k\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Simple Copilot \u2014 no IDs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query/simple",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query",
+                "simple"
+              ]
+            },
+            "description": "PCNE Drug-Related Problem report without any patient identifier.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Review Warfarin prescriptions for drug-related problems\",\n  \"mode\": \"copilot\",\n  \"top_k\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Simple SQL \u2014 no IDs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/query/simple",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "query",
+                "simple"
+              ]
+            },
+            "description": "NL to PartiQL without patient or table context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Find all medications with total cost over 500\",\n  \"mode\": \"sql\",\n  \"top_k\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RAG \u2014 Indexing (WITH table_name / patient_id)",
+      "description": "Full indexing endpoints \u2014 specify table name, patient filter, shard limits.",
+      "item": [
+        {
+          "name": "Index Medications \u2014 with table_name",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/medications",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "medications"
+              ]
+            },
+            "description": "Specify table_name and optional patient_id filter. limit=0 indexes all records.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_name\": \"medications\",\n  \"batch_size\": 100,\n  \"limit\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index by patient_id",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/medications",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "medications"
+              ]
+            },
+            "description": "Index only one patient's medication records.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_name\": \"medications\",\n  \"patient_id\": \"{{PATIENT_ID}}\",\n  \"limit\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index FDA Labels \u2014 specify table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/fda-labels",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "fda-labels"
+              ]
+            },
+            "description": "Fetch FDA labels for drugs in a named table.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_name\": \"medications\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index SNOMED \u2014 specify table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/snomed",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "snomed"
+              ]
+            },
+            "description": "Fetch SNOMED concepts from a named conditions table.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_name\": \"conditions\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index LOINC \u2014 specify table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/loinc",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "loinc"
+              ]
+            },
+            "description": "Index LOINC codes from a named observations table.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"table_name\": \"observations\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index Guideline \u2014 specify URL",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/guidelines",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "guidelines"
+              ]
+            },
+            "description": "Download and index a clinical guideline from any URL.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://www.who.int/publications/i/item/WHO-MHP-HPS-EML-2023.01\",\n  \"source_label\": \"WHO EML 2023\",\n  \"chunk_size\": 400,\n  \"overlap\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RAG \u2014 Indexing (NO IDs required)",
+      "description": "ID-free indexing \u2014 uses environment variable defaults, no table_name or patient_id.",
+      "item": [
+        {
+          "name": "Index Default Corpus \u2014 no IDs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/simple",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "simple"
+              ]
+            },
+            "description": "Uses DYNAMODB_TABLE env var. No table_name, no patient_id needed.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"batch_size\": 100,\n  \"limit\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Index LOINC built-ins \u2014 no IDs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/loinc",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "loinc"
+              ]
+            },
+            "description": "Indexes 16 built-in LOINC codes. No DynamoDB connection needed."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "RAG \u2014 Jobs",
+      "item": [
+        {
+          "name": "Poll Job Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/jobs/:job_id",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "jobs",
+                ":job_id"
+              ],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "<job_id-from-index-response>"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "Index Status",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index/status",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index",
+                "status"
+              ]
+            },
+            "description": "Returns per-shard doc counts and last-indexed timestamps."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Index (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/index",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "index"
+              ],
+              "query": [
+                {
+                  "key": "shard",
+                  "value": "medications"
+                }
+              ]
+            },
+            "description": "Requires admin JWT."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Models",
+      "description": "Named RAG pipeline configurations (main, test, staging). GET /rag/models/ is intentionally excluded \u2014 use GET /rag/models/{name}.",
+      "item": [
+        {
+          "name": "Get One Model",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/models/:name",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "models",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "main"
+                }
+              ]
+            },
+            "description": "Returns config + status for main, test, or staging."
+          },
+          "response": []
+        },
+        {
+          "name": "Register New Model",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/models/",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "models"
+              ]
+            },
+            "description": "Create a custom named pipeline config.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"my-model\",\n  \"label\": \"My Model\",\n  \"embed_backend\": \"clinicalbert\",\n  \"llm_backend\": \"bedrock\",\n  \"llm_model\": \"amazon.nova-lite-v1:0\",\n  \"shard_filter\": \"loinc\",\n  \"top_k\": 3,\n  \"alpha\": 0.6,\n  \"description\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Activate Model",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/models/:name/activate",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "models",
+                ":name",
+                "activate"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "main"
+                }
+              ]
+            },
+            "description": "Set as default for /rag/query."
+          },
+          "response": []
+        },
+        {
+          "name": "Test Model",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/models/:name/test",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "models",
+                ":name",
+                "test"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "test"
+                }
+              ]
+            },
+            "description": "Run test questions. Updates test_pass flag.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"questions\": [\n    \"Normal HbA1c?\",\n    \"Metformin dosage?\"\n  ],\n  \"mode\": \"standard\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Model (admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/rag/models/:name",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "rag",
+                "models",
+                ":name"
+              ],
+              "variable": [
+                {
+                  "key": "name",
+                  "value": "my-model"
+                }
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{RAG_BASE_URL}}/health",
+              "host": [
+                "{{RAG_BASE_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Open \u2014 no JWT."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pharmacist Review API (:4006)",
+      "description": "Drug-Related Problem (DRP) review using FDA drug label corpus. PCNE classification.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{PHARMACIST_URL}}/health",
+              "host": [
+                "{{PHARMACIST_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "Review One Medication",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{PHARMACIST_URL}}/review/medication",
+              "host": [
+                "{{PHARMACIST_URL}}"
+              ],
+              "path": [
+                "review",
+                "medication"
+              ]
+            },
+            "description": "Get PCNE DRP report for a single drug name.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"drug_name\": \"Warfarin Sodium 5 MG Oral Tablet\",\n  \"patient_conditions\": [\n    \"hypertension\",\n    \"atrial fibrillation\"\n  ],\n  \"top_k\": 4\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Check Drug Interactions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{PHARMACIST_URL}}/review/interaction",
+              "host": [
+                "{{PHARMACIST_URL}}"
+              ],
+              "path": [
+                "review",
+                "interaction"
+              ]
+            },
+            "description": "Identify interactions between 2 or more drugs.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"drugs\": [\n    \"Warfarin Sodium 5 MG\",\n    \"Naproxen 500 MG\",\n    \"Aspirin 81 MG\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Review Patient Medications",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{PHARMACIST_URL}}/review/patient/:patient_id",
+              "host": [
+                "{{PHARMACIST_URL}}"
+              ],
+              "path": [
+                "review",
+                "patient",
+                ":patient_id"
+              ],
+              "variable": [
+                {
+                  "key": "patient_id",
+                  "value": "{{PATIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Full DRP review for a patient's active medication list."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "EHR Query API (:4007)",
+      "description": "Natural language to DynamoDB PartiQL. No SQL expertise needed.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{EHR_QUERY_URL}}/health",
+              "host": [
+                "{{EHR_QUERY_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "List Queryable Tables",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{EHR_QUERY_URL}}/ehr/tables",
+              "host": [
+                "{{EHR_QUERY_URL}}"
+              ],
+              "path": [
+                "ehr",
+                "tables"
+              ]
+            },
+            "description": "Returns all DynamoDB table names available for PartiQL queries."
+          },
+          "response": []
+        },
+        {
+          "name": "Natural Language to PartiQL",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{EHR_QUERY_URL}}/ehr/query",
+              "host": [
+                "{{EHR_QUERY_URL}}"
+              ],
+              "path": [
+                "ehr",
+                "query"
+              ]
+            },
+            "description": "Translates a plain-English question into a runnable DynamoDB PartiQL statement.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Find all patients prescribed Metformin after 2010\",\n  \"top_k\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Polypharmacy Query",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{EHR_QUERY_URL}}/ehr/query",
+              "host": [
+                "{{EHR_QUERY_URL}}"
+              ],
+              "path": [
+                "ehr",
+                "query"
+              ]
+            },
+            "description": "Find patients on multiple medications.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Which patients are on more than 3 different medications?\",\n  \"top_k\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Explain Query in Plain English",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{EHR_QUERY_URL}}/ehr/query/explain",
+              "host": [
+                "{{EHR_QUERY_URL}}"
+              ],
+              "path": [
+                "ehr",
+                "query",
+                "explain"
+              ]
+            },
+            "description": "Explain what data a question would retrieve, without generating SQL.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Find patients who were prescribed both Warfarin and Naproxen\",\n  \"top_k\": 3\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Diagnosis Support API (:4008)",
+      "description": "GARMLE-G evidence-based diagnosis with ICD-10/SNOMED codes and CPG citations.",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{DIAGNOSIS_URL}}/health",
+              "host": [
+                "{{DIAGNOSIS_URL}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "No auth required."
+          },
+          "response": []
+        },
+        {
+          "name": "Full GARMLE-G Diagnosis",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{DIAGNOSIS_URL}}/diagnosis/evaluate",
+              "host": [
+                "{{DIAGNOSIS_URL}}"
+              ],
+              "path": [
+                "diagnosis",
+                "evaluate"
+              ]
+            },
+            "description": "Generate evidence-based differential diagnosis from lab values and medications.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lab_values\": {\n    \"HbA1c (4548-4)\": \"7.4%\",\n    \"Fasting glucose\": \"6.8 mmol/L\"\n  },\n  \"current_medications\": [\n    \"Metformin 500 MG\",\n    \"Lisinopril 10 MG\"\n  ],\n  \"symptoms\": [\n    \"excessive thirst\",\n    \"fatigue\"\n  ],\n  \"age\": 58,\n  \"sex\": \"M\",\n  \"top_k\": 5\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Diagnosis from EHR",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{DIAGNOSIS_URL}}/diagnosis/patient/:patient_id",
+              "host": [
+                "{{DIAGNOSIS_URL}}"
+              ],
+              "path": [
+                "diagnosis",
+                "patient",
+                ":patient_id"
+              ],
+              "variable": [
+                {
+                  "key": "patient_id",
+                  "value": "{{PATIENT_ID}}"
+                }
+              ]
+            },
+            "description": "Full diagnosis using patient's DynamoDB records (PACE-RAG)."
+          },
+          "response": []
+        },
+        {
+          "name": "Interpret Lab Value",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{RAG_JWT}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{DIAGNOSIS_URL}}/diagnosis/lab",
+              "host": [
+                "{{DIAGNOSIS_URL}}"
+              ],
+              "path": [
+                "diagnosis",
+                "lab"
+              ]
+            },
+            "description": "Clinical interpretation of one lab result with reference range context.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lab_name\": \"HbA1c\",\n  \"value\": \"7.4%\",\n  \"loinc_code\": \"4548-4\",\n  \"patient_conditions\": [\n    \"type 2 diabetes\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

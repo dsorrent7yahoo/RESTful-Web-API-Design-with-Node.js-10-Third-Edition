@@ -1,0 +1,60 @@
+<div class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-header">
+      <span>🏥 Claims Generator &amp; Cleaner</span>
+      <button mat-icon-button (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+    <mat-tab-group>
+      <!-- Generate -->
+      <mat-tab label="Generate Claims">
+        <div class="tab-body">
+          <p class="desc">Runs the synthetic FHIR claims lambda and uploads CSV to S3.</p>
+          <button mat-raised-button color="primary" (click)="generate()" [disabled]="loading()">
+            🧬 Generate Claims
+          </button>
+          @if (genResult()) {
+            <pre class="response-box">{{ genResult() | json }}</pre>
+          }
+        </div>
+      </mat-tab>
+
+      <!-- CSV files -->
+      <mat-tab label="CSV Files ({{ files().length }})">
+        <div class="tab-body">
+          <div class="file-toolbar">
+            <button mat-icon-button (click)="loadFiles()"><mat-icon>refresh</mat-icon></button>
+          </div>
+          @for (f of files(); track f.key) {
+            <div class="file-row">
+              <span class="file-key">{{ f.key }}</span>
+              <span class="file-size">{{ formatSize(f.size) }}</span>
+              <span class="file-ts">{{ f.lastModified }}</span>
+              <button mat-stroked-button (click)="clean(f.key)">🗄️ Clean &amp; Catalog</button>
+            </div>
+          }
+          @empty { <p class="empty">No CSV files in staging bucket</p> }
+        </div>
+      </mat-tab>
+
+      <!-- Parquet files -->
+      <mat-tab label="Parquet Files ({{ parquetFiles().length }})">
+        <div class="tab-body">
+          @for (f of parquetFiles(); track f.key) {
+            <div class="file-row">
+              <span class="file-key">{{ f.key }}</span>
+              <span class="file-size">{{ formatSize(f.size) }}</span>
+            </div>
+          }
+          @empty { <p class="empty">No Parquet files yet</p> }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+
+    @if (cleanResult()) {
+      <pre class="response-box">{{ cleanResult() | json }}</pre>
+    }
+  </div>
+</div>

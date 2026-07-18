@@ -1,0 +1,47 @@
+<div class="explorer card">
+  <div class="section-title">🔬 API Explorer</div>
+
+  <!-- Target selector -->
+  <div class="target-row">
+    <label>Target:</label>
+    <select [(ngModel)]="targetUrl" [ngModelOptions]="{standalone:true}" class="select-input">
+      <option value="backend">Backend ({{ baseUrl }})</option>
+      @for (k of microKeys; track k) {
+        <option [value]="k">{{ k }} ({{ microUrls[k] }})</option>
+      }
+    </select>
+  </div>
+
+  <!-- Preset quick-buttons -->
+  <div class="preset-row">
+    @for (p of presetKeys; track p) {
+      <button mat-stroked-button (click)="applyPreset(p)" class="preset-btn">{{ p }}</button>
+    }
+  </div>
+
+  <!-- Request builder -->
+  <div class="request-row">
+    <select [(ngModel)]="method" [ngModelOptions]="{standalone:true}" class="method-select">
+      @for (m of methods; track m) { <option>{{ m }}</option> }
+    </select>
+    <input [(ngModel)]="path" [ngModelOptions]="{standalone:true}"
+           class="path-input" placeholder="/path?param=value">
+    <button mat-raised-button color="accent" (click)="send()" [disabled]="loading()">
+      {{ loading() ? 'Sending…' : '▶ Send' }}
+    </button>
+  </div>
+
+  @if (['POST','PUT','PATCH'].includes(method())) {
+    <textarea [(ngModel)]="body" [ngModelOptions]="{standalone:true}"
+              class="body-input" rows="4" placeholder='{"key": "value"}'></textarea>
+  }
+
+  @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+  @if (response()) {
+    <div class="response-section">
+      <span class="status-badge" [class]="statusClass">HTTP {{ status() }}</span>
+      <pre class="response-box">{{ response() }}</pre>
+    </div>
+  }
+</div>

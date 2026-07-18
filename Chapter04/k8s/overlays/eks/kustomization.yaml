@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ── Base ──────────────────────────────────────────────────────────────────────
+# Reference the shared base directory (contains its own kustomization.yaml).
+# Kustomize security allows cross-root references to directories, not bare files.
+resources:
+  - ../../base
+  - serviceaccount.yaml
+  - ingress.yaml
+  - spring-boot-ingress.yaml
+
+# ── ECR image references ──────────────────────────────────────────────────────
+# Replace the local image names with fully-qualified ECR URIs.
+# Update newName values after `terraform output ecr_repository_urls`.
+images:
+  - name: glue-catalog
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-glue-catalog
+    newTag: latest
+  - name: claims-generator
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-claims-generator
+    newTag: latest
+  - name: claims-cleaner
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-claims-cleaner
+    newTag: latest
+  - name: sqs-monitor
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-sqs-monitor
+    newTag: latest
+  - name: athena-client
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-athena-client
+    newTag: latest
+  - name: patients-encounters
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-patients-encounters
+    newTag: latest
+  - name: flask-backend
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-flask-backend
+    newTag: latest
+  - name: spring-boot-backend
+    newName: 005905648819.dkr.ecr.us-east-1.amazonaws.com/healthcare-fhir-spring-boot-backend
+    newTag: latest
+
+# ── Strategic-merge patches ───────────────────────────────────────────────────
+patches:
+  # 1. imagePullPolicy: Never  →  IfNotPresent  (images come from ECR, not local daemon)
+  - path: patch-imagepullpolicy.yaml
+    target:
+      kind: Deployment
+
+  # 2. Service type: NodePort  →  ClusterIP  (external traffic via ALB Ingress only)
+  - path: patch-service-clusterip.yaml
+    target:
+      kind: Service
+
+  # 3. Add the IRSA ServiceAccount to every Deployment pod spec
+  - path: patch-serviceaccount.yaml
+    target:
+      kind: Deployment
+
+  # 4. Fargate CPU/memory requests — required for pod scheduling on Fargate
+  - path: patch-resources.yaml
+    target:
+      kind: Deployment
+
+  # 4. Remove the nodePort field from every Service port
+  - path: patch-remove-nodeport.yaml
+    target:
+      kind: Service

@@ -1,0 +1,23 @@
+**/node_modules
+**/dist
+**/.vite
+**/.DS_Store
+**/npm-debug.log
+**/.env
+.git
+.gitignore
+.vscode
+coherent-11-07-2022/dicom
+
+# Not needed inside the Flask/Django containers
+fhirstarters/
+spring-boot-react-frontend/
+dynamo-db-frontend/
+dynamo-db-backend/
+backend/
+
+# Exclude Terraform runtime artifacts (state, lock, providers) but keep .tf source
+infra/**/.terraform
+infra/**/.terraform.lock.hcl
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthcare API Gateway</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+
+    /* ── Login Screen ── */
+    #login-screen { display: none; min-height: 100vh; align-items: center; justify-content: center; background: radial-gradient(ellipse at 50% 0%, #1e3a5f 0%, #0f172a 70%); }
+    #login-screen.visible { display: flex; }
+    .login-card { background: #1e293b; border: 1px solid #1e3a5f; border-radius: 16px; padding: 40px 44px; width: 380px; box-shadow: 0 24px 48px #00000066; }
+    .login-logo { font-size: 36px; text-align: center; margin-bottom: 10px; }
+    .login-title { text-align: center; font-size: 20px; font-weight: 800; color: #f1f5f9; margin-bottom: 4px; }
+    .login-subtitle { text-align: center; font-size: 12px; color: #64748b; margin-bottom: 28px; }
+    .login-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .login-tab { flex: 1; padding: 8px; border-radius: 8px; border: 1px solid #334155; background: transparent; color: #94a3b8; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .login-tab.active { background: #1e3a5f; border-color: #3b82f6; color: #7dd3fc; }
+    .login-field { margin-bottom: 16px; }
+    .login-field label { display: block; font-size: 12px; font-weight: 600; color: #94a3b8; margin-bottom: 6px; }
+    .login-field input { width: 100%; padding: 10px 12px; border-radius: 8px; background: #0f172a; border: 1px solid #334155; color: #e2e8f0; font-size: 14px; outline: none; transition: border-color .15s; }
+    .login-field input:focus { border-color: #3b82f6; }
+    .login-btn { width: 100%; padding: 12px; border-radius: 8px; border: none; background: linear-gradient(135deg, #1d4ed8, #1e40af); color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .15s; margin-top: 8px; }
+    .login-btn:hover { opacity: .9; }
+    .login-error { margin-top: 12px; padding: 10px 12px; border-radius: 8px; background: #7f1d1d22; border: 1px solid #dc262644; color: #f87171; font-size: 13px; display: none; }
+    .login-error.visible { display: block; }
+    .login-hint { margin-top: 16px; font-size: 11px; color: #475569; text-align: center; line-height: 1.6; }
+
+    /* ── App Screen ── */
+    #app-screen { display: none; }
+    #app-screen.visible { display: block; }
+
+    /* ── Header ── */
+    header { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-bottom: 1px solid #1e3a5f; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .header-icon { font-size: 28px; }
+    .header-title h1 { font-size: 18px; font-weight: 800; color: #f1f5f9; }
+    .header-title p  { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .header-badge { display: flex; align-items: center; gap: 8px; background: #0f2744; border: 1px solid #1e3a5f; border-radius: 20px; padding: 5px 12px; font-size: 12px; color: #7dd3fc; }
+    .user-badge { display: flex; align-items: center; gap: 6px; background: #0f2744; border: 1px solid #1e3a5f; border-radius: 20px; padding: 5px 12px; font-size: 12px; }
+    .role-admin    { color: #34d399; }
+    .role-customer { color: #fbbf24; }
+    .logout-btn { font-size: 12px; font-weight: 600; border-radius: 20px; border: 1px solid #7f1d1d; background: transparent; color: #f87171; padding: 5px 12px; cursor: pointer; transition: background .15s; }
+    .logout-btn:hover { background: #7f1d1d22; }
+    .pulse { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .6; transform: scale(1.3); } }
+
+    /* ── Scope banner ── */
+    .scope-banner { background: #78350f22; border-bottom: 1px solid #d9770033; padding: 8px 32px; font-size: 12px; color: #fbbf24; display: none; }
+    .scope-banner.visible { display: flex; align-items: center; gap: 8px; }
+
+    /* ── Summary bar ── */
+    .summary-bar { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; padding: 12px 32px; background: #1e293b; border-bottom: 1px solid #334155; font-size: 13px; }
+    .summary-item { display: flex; align-items: center; gap: 7px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-up { background: #22c55e; } .dot-degraded { background: #f59e0b; } .dot-down { background: #ef4444; } .dot-checking { background: #64748b; }
+    .summary-count { font-weight: 700; font-size: 18px; }
+    .summary-label { color: #94a3b8; }
+    .last-updated  { margin-left: auto; color: #475569; font-size: 11px; }
+
+    /* ── Grid ── */
+    main { padding: 24px 32px; }
+    .category-section { margin-bottom: 32px; }
+    .category-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: #475569; border-bottom: 1px solid #1e293b; padding-bottom: 8px; margin-bottom: 16px; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+
+    /* ── Service card ── */
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; transition: border-color .2s, transform .15s; }
+    .card:hover { border-color: #3b82f6; transform: translateY(-2px); }
+    .card-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; background: linear-gradient(135deg, #1e3a5f22, #0f172a); border-bottom: 1px solid #334155; }
+    .card-icon { font-size: 22px; flex-shrink: 0; }
+    .card-label { font-weight: 700; font-size: 14px; color: #f1f5f9; }
+    .card-category { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .card-status { margin-left: auto; flex-shrink: 0; }
+    .status-badge { display: flex; align-items: center; gap: 5px; border-radius: 20px; padding: 3px 9px; font-size: 11px; font-weight: 700; }
+    .status-up       { background: #14532d22; color: #22c55e; border: 1px solid #16a34a44; }
+    .status-degraded { background: #78350f22; color: #f59e0b; border: 1px solid #d9770044; }
+    .status-down     { background: #7f1d1d22; color: #ef4444; border: 1px solid #dc262644; }
+    .status-checking { background: #1e293b;   color: #64748b; border: 1px solid #33415544; }
+    .card-body { padding: 14px 16px; flex: 1; }
+    .card-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin-bottom: 10px; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .meta-pill { font-size: 11px; background: #0f172a; border: 1px solid #334155; border-radius: 4px; padding: 2px 7px; color: #64748b; font-family: monospace; }
+    .meta-pill.latency { color: #22c55e; border-color: #14532d44; }
+    .meta-pill.error   { color: #ef4444; border-color: #7f1d1d44; }
+    .card-footer { padding: 12px 16px; border-top: 1px solid #1e293b; display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn { font-size: 12px; font-weight: 600; border-radius: 6px; border: none; cursor: pointer; padding: 5px 12px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-proxy  { background: linear-gradient(135deg, #1d4ed8, #1e40af); color: #fff; }
+    .btn-launch { background: linear-gradient(135deg, #0f766e, #065f46); color: #fff; }
+    .btn-swagger{ background: linear-gradient(135deg, #7c3aed, #5b21b6); color: #fff; }
+
+    /* ── Footer ── */
+    footer { text-align: center; padding: 16px; font-size: 11px; color: #334155; border-top: 1px solid #1e293b; }
+    footer a { color: #3b82f6; }
+
+    /* ── Spinner ── */
+    .spinner { width: 18px; height: 18px; border: 2px solid #334155; border-top-color: #3b82f6; border-radius: 50%; animation: spin .7s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🔌</div>
+    <div class="login-title">Healthcare API Gateway</div>
+    <div class="login-subtitle">Sign in to access the service dashboard</div>
+
+    <div class="login-tabs">
+      <button class="login-tab active" id="tab-admin"    onclick="switchTab('admin')">🛡 Admin</button>
+      <button class="login-tab"        id="tab-customer" onclick="switchTab('customer')">🔑 Customer API Key</button>
+    </div>
+
+    <div id="form-admin">
+      <div class="login-field"><label>Username</label>
+        <input id="admin-user" type="text" value="admin" autocomplete="username" /></div>
+      <div class="login-field"><label>Password</label>
+        <input id="admin-pass" type="password" placeholder="Password"
+               onkeydown="if(event.key==='Enter') doLogin()" /></div>
+      <button class="login-btn" onclick="doLogin()">Sign In</button>
+      <p class="login-hint">Full dashboard access · all proxy routes · service management</p>
+    </div>
+
+    <div id="form-customer" style="display:none">
+      <div class="login-field"><label>API Key</label>
+        <input id="customer-key" type="password" placeholder="Your customer API key"
+               onkeydown="if(event.key==='Enter') doLogin()" /></div>
+      <button class="login-btn" onclick="doLogin()">Access Dashboard</button>
+      <p class="login-hint">Read-only view · scoped to your assigned service stacks</p>
+    </div>
+
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══ APP SCREEN ══ -->
+<div id="app-screen">
+  <header>
+    <div class="header-left">
+      <span class="header-icon">🔌</span>
+      <div class="header-title">
+        <h1>Healthcare API Gateway</h1>
+        <p>Single entry point — backends · frontends · microservices</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="user-badge">
+        <span id="user-icon">👤</span>
+        <span id="user-name" style="color:#e2e8f0; font-weight:600;"></span>
+        <span id="user-role-tag"></span>
+      </div>
+      <div class="header-badge"><span class="pulse"></span><span>Port 8080</span></div>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </header>
+
+  <div class="scope-banner" id="scope-banner">
+    <span>🔒</span><span id="scope-text"></span>
+  </div>
+
+  <div class="summary-bar" id="summary-bar">
+    <div class="summary-item"><span class="spinner"></span><span class="summary-label">Checking services…</span></div>
+  </div>
+
+  <main id="main-content">
+    <p style="color:#64748b; font-size:13px;">Loading service registry…</p>
+  </main>
+
+  <footer>
+    Healthcare API Gateway v1.0 ·
+    <a href="/registry">Registry JSON</a> · <a href="/health">Health JSON</a> · <a href="/status">Status JSON</a>
+  </footer>
+</div>
+
+<script>
+  const TOKEN_KEY = 'gw_token';
+  const getToken  = () => sessionStorage.getItem(TOKEN_KEY);
+  const setToken  = (t) => sessionStorage.setItem(TOKEN_KEY, t);
+  const clearToken= () => sessionStorage.removeItem(TOKEN_KEY);
+
+  function parseJwt(token) {
+    try { return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))); }
+    catch { return null; }
+  }
+  function isTokenValid(token) {
+    const p = parseJwt(token);
+    return p && p.exp * 1000 > Date.now();
+  }
+
+  let activeTab = 'admin';
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('tab-admin').classList.toggle('active', tab === 'admin');
+    document.getElementById('tab-customer').classList.toggle('active', tab === 'customer');
+    document.getElementById('form-admin').style.display    = tab === 'admin'    ? '' : 'none';
+    document.getElementById('form-customer').style.display = tab === 'customer' ? '' : 'none';
+    document.getElementById('login-error').classList.remove('visible');
+  }
+
+  async function doLogin() {
+    const errEl = document.getElementById('login-error');
+    errEl.classList.remove('visible');
+    const body = activeTab === 'admin'
+      ? { username: document.getElementById('admin-user').value,
+          password: document.getElementById('admin-pass').value }
+      : { apiKey: document.getElementById('customer-key').value };
+    try {
+      const res  = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showLoginError(data.error || 'Login failed'); return; }
+      setToken(data.token);
+      showApp(parseJwt(data.token));
+      refresh();
+    } catch(e) { showLoginError('Network error: ' + e.message); }
+  }
+
+  function doLogout() { clearToken(); showLogin(); }
+
+  function showLoginError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg; el.classList.add('visible');
+  }
+
+  function showLogin() {
+    document.getElementById('login-screen').classList.add('visible');
+    document.getElementById('app-screen').classList.remove('visible');
+  }
+
+  function showApp(payload) {
+    document.getElementById('login-screen').classList.remove('visible');
+    document.getElementById('app-screen').classList.add('visible');
+    const isAdmin = payload.role === 'admin';
+    document.getElementById('user-icon').textContent = isAdmin ? '🛡' : '🔑';
+    document.getElementById('user-name').textContent = payload.name || payload.sub;
+    const roleTag = document.getElementById('user-role-tag');
+    roleTag.textContent = isAdmin ? 'Admin' : 'Customer';
+    roleTag.className   = isAdmin ? 'role-admin' : 'role-customer';
+    const banner = document.getElementById('scope-banner');
+    if (!isAdmin && payload.scopes && payload.scopes.length > 0) {
+      document.getElementById('scope-text').textContent = `Read-only · scoped to: ${payload.scopes.join(', ')}`;
+      banner.classList.add('visible');
+    } else { banner.classList.remove('visible'); }
+  }
+
+  const authFetch = (url) => fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
+
+  const CATEGORY_ORDER  = ['frontend', 'backend', 'microservice'];
+  const CATEGORY_LABELS = { frontend: 'Frontends', backend: 'API Backends', microservice: 'Microservices' };
+
+  function statusBadge(s) {
+    if (!s) return `<span class="status-badge status-checking"><span class="dot dot-checking"></span>Checking</span>`;
+    const map = { up:['dot-up','status-up','● Online'], degraded:['dot-degraded','status-degraded','⚠ Degraded'], down:['dot-down','status-down','● Offline'] };
+    const [dotCls,badgeCls,text] = map[s.status] || map.down;
+    return `<span class="status-badge ${badgeCls}"><span class="dot ${dotCls}"></span>${text}</span>`;
+  }
+
+  function renderCard(svc) {
+    return `
+    <div class="card" id="card-${svc.key}">
+      <div class="card-header">
+        <span class="card-icon">${svc.icon}</span>
+        <div><div class="card-label">${svc.label}</div><div class="card-category">${svc.category}</div></div>
+        <div class="card-status">${statusBadge(svc)}</div>
+      </div>
+      <div class="card-body">
+        <p class="card-desc">${svc.description || ''}</p>
+        <div class="card-meta">
+          <span class="meta-pill">target: ${svc.target}</span>
+          ${svc.latencyMs != null ? `<span class="meta-pill latency">${svc.latencyMs}ms</span>` : ''}
+          ${svc.error ? `<span class="meta-pill error">${svc.error.slice(0,40)}</span>` : ''}
+        </div>
+      </div>
+      <div class="card-footer">
+        <a class="btn btn-proxy"  href="/proxy/${svc.key}" target="_blank">🔀 Proxy</a>
+        ${svc.launchUrl  ? `<a class="btn btn-launch"  href="${svc.launchUrl}"  target="_blank">🚀 Launch</a>` : ''}
+        ${svc.swaggerPath? `<a class="btn btn-swagger" href="${svc.swaggerPath}" target="_blank">📋 Swagger</a>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function renderGrid(services) {
+    const byCategory = {};
+    for (const svc of services) (byCategory[svc.category] = byCategory[svc.category] || []).push(svc);
+    return CATEGORY_ORDER.filter((c) => byCategory[c]?.length).map((cat) =>
+      `<div class="category-section">
+        <div class="category-heading">${CATEGORY_LABELS[cat]} (${byCategory[cat].length})</div>
+        <div class="card-grid">${byCategory[cat].map(renderCard).join('')}</div>
+      </div>`).join('');
+  }
+
+  function renderSummary(summary) {
+    const t = new Date(summary.checkedAt).toLocaleTimeString();
+    return `
+      <div class="summary-item"><span class="dot dot-up"></span><span class="summary-count">${summary.up}</span><span class="summary-label">Online</span></div>
+      <div class="summary-item"><span class="dot dot-degraded"></span><span class="summary-count">${summary.degraded}</span><span class="summary-label">Degraded</span></div>
+      <div class="summary-item"><span class="dot dot-down"></span><span class="summary-count">${summary.down}</span><span class="summary-label">Offline</span></div>
+      <span class="summary-label">of ${summary.total} services</span>
+      <span class="last-updated">Last checked: ${t}</span>`;
+  }
+
+  async function refresh() {
+    if (!isTokenValid(getToken())) { doLogout(); return; }
+    try {
+      const [statusRes, regRes] = await Promise.all([authFetch('/status'), authFetch('/registry')]);
+      if (statusRes.status === 401 || statusRes.status === 403) { doLogout(); return; }
+      const data    = await statusRes.json();
+      const regData = await regRes.json();
+      document.getElementById('summary-bar').innerHTML = renderSummary(data.summary);
+      const regMap = Object.fromEntries(regData.services.map((s) => [s.key, s]));
+      const merged = data.services.map((s) => ({ ...regMap[s.key], ...s }));
+      document.getElementById('main-content').innerHTML = renderGrid(merged);
+    } catch(e) {
+      document.getElementById('summary-bar').innerHTML = `<span style="color:#ef4444">⚠ Gateway error: ${e.message}</span>`;
+    }
+  }
+
+  (function boot() {
+    const token = getToken();
+    if (token && isTokenValid(token)) { showApp(parseJwt(token)); refresh(); setInterval(refresh, 15000); }
+    else { clearToken(); showLogin(); }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<div class="modal-overlay">
+  <div class="modal card">
+    <div class="modal-header">
+      <span>📬 SQS Lambda Monitor</span>
+      <div class="header-actions">
+        <button mat-icon-button (click)="refresh()"><mat-icon>refresh</mat-icon></button>
+        <button mat-icon-button (click)="closed.emit()"><mat-icon>close</mat-icon></button>
+      </div>
+    </div>
+
+    @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+    <!-- Stats row -->
+    @if (stats()) {
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-val">{{ stats().available }}</div>
+          <div class="stat-lbl">Available</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val">{{ stats().inFlight }}</div>
+          <div class="stat-lbl">In-Flight</div>
+        </div>
+        <div class="stat-card dlq">
+          <div class="stat-val">{{ dlqStats()?.available ?? '—' }}</div>
+          <div class="stat-lbl">DLQ</div>
+        </div>
+        <div class="queue-url">{{ stats().queueUrl }}</div>
+      </div>
+    }
+
+    <mat-tab-group>
+      <mat-tab label="Email Log ({{ emailLog().length }})">
+        <div class="log-table">
+          @for (item of emailLog(); track item.id || $index) {
+            <div class="log-row">
+              <span class="badge-info log-type">{{ item.messageType ?? item.type ?? '—' }}</span>
+              <span class="log-ts">{{ item.timestamp ?? '' }}</span>
+              <span class="log-msg">{{ item.subject ?? item.message ?? '' }}</span>
+            </div>
+          }
+          @empty { <p class="empty">No email log entries</p> }
+        </div>
+      </mat-tab>
+      <mat-tab label="Queue Actions">
+        <div class="actions-tab">
+          <button mat-stroked-button color="warn" (click)="purge()">
+            <mat-icon>delete_sweep</mat-icon> Purge Queue
+          </button>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </div>
+</div>

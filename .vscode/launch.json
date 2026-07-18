@@ -1,0 +1,76 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Attach Spring Backend Debug (5005)",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5005,
+      "preLaunchTask": "Spring Backend: Debug (8080)"
+    },
+    {
+      "type": "java",
+      "name": "Attach Spring Backend Debug Standalone (5006)",
+      "request": "attach",
+      "hostName": "localhost",
+      "port": 5006,
+      "preLaunchTask": "Spring Backend: Debug Standalone (8081)"
+    },
+
+    // ── Flask: run locally (no Docker) ────────────────────────────────────────
+    {
+      "name": "Flask: Run (localhost:4001)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend/app.py",
+      "cwd": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend",
+      "console": "integratedTerminal",
+      "env": {
+        "FLASK_ENV": "development",
+        "PORT": "4001",
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "AWS_PROFILE": "default",
+        "DYNAMODB_TABLE": "medications",
+        "AUTO_CREATE_CSV_TABLES": "true",
+        "JWT_SECRET": "local-dev-secret",
+        "JWT_EXP_MINUTES": "60"
+      }
+    },
+
+    // ── Flask: run tests with debugger ────────────────────────────────────────
+    {
+      "name": "Flask: Debug Tests",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/", "-v", "--tb=short", "--no-header", "-s"],
+      "cwd": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend",
+      "console": "integratedTerminal",
+      "env": {
+        "AWS_DEFAULT_REGION": "us-east-1",
+        "AWS_ACCESS_KEY_ID": "test",
+        "AWS_SECRET_ACCESS_KEY": "test",
+        "DYNAMODB_TABLE": "medications-test",
+        "JWT_SECRET": "test-secret-for-ci",
+        "AUTO_CREATE_CSV_TABLES": "false",
+        "PORT": "4001"
+      },
+      "justMyCode": false
+    },
+
+    // ── Flask: attach to running Docker container ────────────────────────────
+    {
+      "name": "Flask: Attach to Docker Container",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": { "host": "localhost", "port": 5678 },
+      "pathMappings": [
+        {
+          "localRoot": "${workspaceFolder}/Chapter04/flask-dynamo-db-backend",
+          "remoteRoot": "/app"
+        }
+      ]
+    }
+  ]
+}

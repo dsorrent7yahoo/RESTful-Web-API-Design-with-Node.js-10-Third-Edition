@@ -1,0 +1,31 @@
+.explorer { padding: 16px; }
+.section-title { font-weight: 700; color: #7dd3fc; margin-bottom: 14px; }
+
+.target-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+.preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.preset-btn { font-size: 11px; padding: 0 8px; height: 26px; }
+
+.request-row {
+  display: flex; gap: 8px; align-items: center; margin-bottom: 10px;
+}
+
+.method-select, .select-input {
+  background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+  padding: 6px 10px; border-radius: 6px; font-size: 13px;
+  &:focus { outline: none; border-color: #58a6ff; }
+}
+.method-select { width: 90px; }
+.path-input {
+  flex: 1; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+  padding: 6px 12px; border-radius: 6px; font-size: 13px; font-family: monospace;
+  &:focus { outline: none; border-color: #58a6ff; }
+}
+.body-input {
+  width: 100%; background: #0d1117; border: 1px solid #30363d; color: #e6edf3;
+  padding: 8px; border-radius: 6px; font-family: monospace; font-size: 12px; resize: vertical;
+  &:focus { outline: none; border-color: #58a6ff; }
+  margin-bottom: 10px;
+}
+.response-section { margin-top: 10px; }
+.status-badge { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+  display: inline-block; margin-bottom: 6px; }

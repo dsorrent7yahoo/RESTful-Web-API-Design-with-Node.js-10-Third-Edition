@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Health Care Login</title>
+    <style>
+      :root {
+        --bg: #f4f8fb;
+        --card: #ffffff;
+        --text: #1a2a33;
+        --muted: #536973;
+        --primary: #0b6fa4;
+        --primary-dark: #084f75;
+        --border: #d6e1e6;
+        --danger: #b42318;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: radial-gradient(circle at 20% 20%, #e6f2f8, var(--bg));
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .panel {
+        width: 100%;
+        max-width: 460px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: 0 20px 45px rgba(12, 41, 56, 0.12);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 1.6rem;
+      }
+
+      .sub {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      .tab-btn {
+        border: 1px solid var(--border);
+        background: #f6fafc;
+        color: var(--text);
+        border-radius: 10px;
+        padding: 10px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .tab-btn.active {
+        border-color: var(--primary);
+        background: #e9f6fd;
+        color: var(--primary-dark);
+      }
+
+      .form { display: none; }
+      .form.active { display: block; }
+
+      label {
+        display: block;
+        margin: 10px 0 6px;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 0.95rem;
+      }
+
+      .password-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .password-row input {
+        flex: 1;
+      }
+
+      .toggle-password {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fff;
+        padding: 9px 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      button[type="submit"] {
+        width: 100%;
+        margin-top: 14px;
+        border: 0;
+        border-radius: 10px;
+        padding: 11px 12px;
+        background: var(--primary);
+        color: #fff;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      button[type="submit"]:hover {
+        background: var(--primary-dark);
+      }
+
+      .secondary-btn {
+        width: 100%;
+        margin-top: 10px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 11px 12px;
+        background: #fff;
+        color: var(--text);
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .message {
+        margin-top: 14px;
+        min-height: 22px;
+        font-size: 0.92rem;
+        color: var(--muted);
+      }
+
+      .message.error {
+        color: var(--danger);
+      }
+
+      .hint {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Health Care User Access</h1>
+      <p class="sub">Login with email and password, or register a new account.</p>
+
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-login" type="button">Login</button>
+        <button class="tab-btn" id="tab-register" type="button">Register</button>
+        <button class="tab-btn" id="tab-forgot" type="button">Forgot Password</button>
+      </div>
+
+      <form class="form active" id="login-form">
+        <label for="login-email">Email</label>
+        <input id="login-email" name="email" type="text" required value="react-dgs@yahoo.com">
+
+        <label for="login-password">Password</label>
+        <div class="password-row">
+          <input id="login-password" name="password" type="text" required value="python">
+          <button class="toggle-password" type="button" data-target="login-password">Show</button>
+        </div>
+
+        <button type="submit">Login</button>
+        <button id="logout-btn" class="secondary-btn" type="button">Logout</button>
+      </form>
+
+      <form class="form" id="register-form">
+        <label for="register-email">Email</label>
+        <input id="register-email" name="email" type="text" required>
+
+        <label for="register-username">Username (optional)</label>
+        <input id="register-username" name="username" type="text">
+
+        <label for="register-password">Password</label>
+        <div class="password-row">
+          <input id="register-password" name="password" type="password" required>
+          <button class="toggle-password" type="button" data-target="register-password">Show</button>
+        </div>
+
+        <button type="submit">Register</button>
+      </form>
+
+      <form class="form" id="forgot-form">
+        <label for="forgot-email">Email</label>
+        <input id="forgot-email" name="email" type="text" required>
+
+        <label for="forgot-password">New Password</label>
+        <div class="password-row">
+          <input id="forgot-password" name="newPassword" type="password" required>
+          <button class="toggle-password" type="button" data-target="forgot-password">Show</button>
+        </div>
+
+        <button type="submit">Reset Password</button>
+      </form>
+
+      <div class="message" id="message"></div>
+      <div class="hint">API docs are available at <a href="/api-docs">/api-docs</a>.</div>
+    </main>
+
+    <script>
+      const loginTab = document.getElementById("tab-login");
+      const registerTab = document.getElementById("tab-register");
+      const forgotTab = document.getElementById("tab-forgot");
+      const loginForm = document.getElementById("login-form");
+      const registerForm = document.getElementById("register-form");
+      const forgotForm = document.getElementById("forgot-form");
+      const messageEl = document.getElementById("message");
+      const logoutBtn = document.getElementById("logout-btn");
+      const passwordToggleButtons = document.querySelectorAll(".toggle-password");
+
+      function showMode(mode) {
+        const isLogin = mode === "login";
+        const isRegister = mode === "register";
+        const isForgot = mode === "forgot";
+        loginTab.classList.toggle("active", isLogin);
+        registerTab.classList.toggle("active", isRegister);
+        forgotTab.classList.toggle("active", isForgot);
+        loginForm.classList.toggle("active", isLogin);
+        registerForm.classList.toggle("active", isRegister);
+        forgotForm.classList.toggle("active", isForgot);
+        setMessage("");
+      }
+
+      function setMessage(text, isError = false) {
+        messageEl.textContent = text;
+        messageEl.classList.toggle("error", isError);
+      }
+
+      async function postJson(url, payload) {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (_) {
+          data = {};
+        }
+
+        if (!response.ok) {
+          const message = data.message || "Request failed";
+          throw new Error(message);
+        }
+
+        return data;
+      }
+
+      async function getAuthMe(token) {
+        const response = await fetch("/auth/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          throw new Error("Unable to validate token");
+        }
+        return response.json();
+      }
+
+      async function postLogout(token) {
+        const response = await fetch("/auth/logout", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) {
+          throw new Error("Unable to logout");
+        }
+        return response.json();
+      }
+
+      loginTab.addEventListener("click", () => showMode("login"));
+      registerTab.addEventListener("click", () => showMode("register"));
+      forgotTab.addEventListener("click", () => showMode("forgot"));
+
+      passwordToggleButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const targetId = button.getAttribute("data-target");
+          const input = document.getElementById(targetId);
+          if (!input) {
+            return;
+          }
+          const showText = input.type === "password";
+          input.type = showText ? "text" : "password";
+          button.textContent = showText ? "Hide" : "Show";
+        });
+      });
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setMessage("Logging in...");
+
+        const email = document.getElementById("login-email").value.trim();
+        const password = document.getElementById("login-password").value;
+
+        try {
+          const result = await postJson("/auth/login", { email, password });
+          localStorage.setItem("healthCareToken", result.accessToken);
+          window.location.href = "/api-docs";
+        } catch (error) {
+          setMessage(`Login failed: ${error.message}`, true);
+        }
+      });
+
+      registerForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setMessage("Creating account...");
+
+        const email = document.getElementById("register-email").value.trim();
+        const username = document
+          .getElementById("register-username")
+          .value.trim();
+        const password = document.getElementById("register-password").value;
+
+        try {
+          const payload = { email, password };
+          if (username) {
+            payload.username = username;
+          }
+          const result = await postJson("/auth/register", payload);
+          const emailStatus = result.approvalEmailSent
+            ? "Approval email sent."
+            : "Email delivery is not configured yet.";
+          const devLink = result.devApprovalLink
+            ? ` Dev approval link: ${result.devApprovalLink}`
+            : "";
+          setMessage(
+            `Registration pending approval for ${email}. ${emailStatus}${devLink}`
+          );
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      });
+
+      forgotForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        setMessage("Resetting password...");
+
+        const email = document.getElementById("forgot-email").value.trim();
+        const newPassword = document.getElementById("forgot-password").value;
+
+        try {
+          await postJson("/auth/forgot-password", { email, newPassword });
+          setMessage("Password updated. You can now login with the new password.");
+          showMode("login");
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      });
+
+      logoutBtn.addEventListener("click", async () => {
+        const token = localStorage.getItem("healthCareToken");
+        if (!token) {
+          setMessage("No active token in browser storage.");
+          return;
+        }
+
+        try {
+          await postLogout(token);
+          localStorage.removeItem("healthCareToken");
+          setMessage("Logged out. Token removed from this browser.");
+        } catch (error) {
+          localStorage.removeItem("healthCareToken");
+          setMessage(`${error.message}. Local token still removed.`, true);
+        }
+      });
+    </script>
+  </body>
+</html>

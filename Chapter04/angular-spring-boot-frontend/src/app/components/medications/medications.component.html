@@ -1,0 +1,90 @@
+<div class="med-container card">
+  <div class="toolbar-row">
+    <span class="section-title">💊 Medications</span>
+    <input class="filter-input" [(ngModel)]="filterText" [ngModelOptions]="{standalone:true}"
+           placeholder="Filter by patient / code / description…">
+    <button mat-raised-button color="primary" (click)="openCreate()">
+      <mat-icon>add</mat-icon> Add
+    </button>
+    <button mat-icon-button (click)="load()" title="Refresh"><mat-icon>refresh</mat-icon></button>
+  </div>
+
+  @if (loading()) { <mat-progress-bar mode="indeterminate" /> }
+
+  <!-- Medications table -->
+  <div class="table-wrapper">
+    <table mat-table [dataSource]="filteredMeds" class="mat-elevation-z1">
+      <ng-container matColumnDef="id">
+        <th mat-header-cell *matHeaderCellDef>ID</th>
+        <td mat-cell *matCellDef="let m" class="mono truncate">{{ m.id | slice:0:12 }}…</td>
+      </ng-container>
+      <ng-container matColumnDef="patient">
+        <th mat-header-cell *matHeaderCellDef>Patient</th>
+        <td mat-cell *matCellDef="let m" class="mono truncate">{{ m.patient | slice:0:10 }}…</td>
+      </ng-container>
+      <ng-container matColumnDef="code">
+        <th mat-header-cell *matHeaderCellDef>Code</th>
+        <td mat-cell *matCellDef="let m">{{ m.code }}</td>
+      </ng-container>
+      <ng-container matColumnDef="description">
+        <th mat-header-cell *matHeaderCellDef>Description</th>
+        <td mat-cell *matCellDef="let m" class="truncate">{{ m.description }}</td>
+      </ng-container>
+      <ng-container matColumnDef="baseCost">
+        <th mat-header-cell *matHeaderCellDef>Base $</th>
+        <td mat-cell *matCellDef="let m">{{ m.baseCost | number:'1.2-2' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="totalCost">
+        <th mat-header-cell *matHeaderCellDef>Total $</th>
+        <td mat-cell *matCellDef="let m">{{ m.totalCost | number:'1.2-2' }}</td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef>Actions</th>
+        <td mat-cell *matCellDef="let m">
+          <button mat-icon-button color="accent" (click)="openEdit(m)"><mat-icon>edit</mat-icon></button>
+          <button mat-icon-button color="warn"   (click)="delete(m)"><mat-icon>delete</mat-icon></button>
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </div>
+
+  <p class="count-info">{{ filteredMeds.length }} items shown
+    @if (lastKey()) { · <button mat-button (click)="load()">Load more</button> }
+  </p>
+
+  <!-- Create / Edit form panel -->
+  @if (showForm()) {
+    <div class="form-panel card">
+      <div class="form-header">
+        <strong>{{ editing() ? 'Edit' : 'New' }} Medication</strong>
+        <button mat-icon-button (click)="showForm.set(false)"><mat-icon>close</mat-icon></button>
+      </div>
+      <form [formGroup]="form" (ngSubmit)="save()" class="med-form">
+        <mat-form-field appearance="outline"><mat-label>Patient ID</mat-label>
+          <input matInput formControlName="patient"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Code</mat-label>
+          <input matInput formControlName="code"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Description</mat-label>
+          <input matInput formControlName="description"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Payer</mat-label>
+          <input matInput formControlName="payer"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Encounter</mat-label>
+          <input matInput formControlName="encounter"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Base Cost</mat-label>
+          <input matInput formControlName="baseCost" type="number"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Payer Coverage</mat-label>
+          <input matInput formControlName="payerCoverage" type="number"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Dispenses</mat-label>
+          <input matInput formControlName="dispenses" type="number"></mat-form-field>
+        <mat-form-field appearance="outline"><mat-label>Total Cost</mat-label>
+          <input matInput formControlName="totalCost" type="number"></mat-form-field>
+        <div class="form-actions">
+          <button mat-raised-button color="primary" type="submit" [disabled]="form.invalid">Save</button>
+          <button mat-stroked-button type="button" (click)="showForm.set(false)">Cancel</button>
+        </div>
+      </form>
+    </div>
+  }
+</div>

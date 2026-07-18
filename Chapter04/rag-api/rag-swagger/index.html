@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Healthcare RAG API — Swagger UI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+    .topbar { background: #1b2a3b !important; }
+    .topbar .download-url-wrapper { display: none; }
+    .swagger-ui .info .title { color: #1b2a3b; }
+    .swagger-ui .opblock.opblock-post .opblock-summary-method { background: #0a6e49; }
+    .swagger-ui .opblock.opblock-get  .opblock-summary-method { background: #0063a5; }
+    .swagger-ui .opblock.opblock-delete .opblock-summary-method { background: #cc3300; }
+    #banner {
+      background: #1b2a3b; color: #fff; padding: 10px 20px;
+      font-family: sans-serif; font-size: 13px;
+      display: flex; align-items: center; gap: 20px;
+    }
+    #banner strong { font-size: 16px; }
+    #banner a { color: #7dd3fc; text-decoration: none; }
+    #banner a:hover { text-decoration: underline; }
+    #banner .badge {
+      background: #0a6e49; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div id="banner">
+    <strong>&#x1F3E5; Healthcare RAG API</strong>
+    <span class="badge">FastAPI · OpenAPI 3.1</span>
+    <span>Port: <strong>4005</strong></span>
+    <span>&#x1F512; Bearer JWT required for /rag/* routes</span>
+    <span style="margin-left:auto">
+      <a href="openapi.json" target="_blank">openapi.json</a> &nbsp;|&nbsp;
+      <a href="openapi.yaml" target="_blank">openapi.yaml</a> &nbsp;|&nbsp;
+      <a href="postman-collection.json" target="_blank">Postman</a> &nbsp;|&nbsp;
+      <a href="http://localhost:4005/docs" target="_blank">Live Docs</a>
+    </span>
+  </div>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function () {
+      const ui = SwaggerUIBundle({
+        url: "openapi.json",
+        dom_id: "#swagger-ui",
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout",
+        deepLinking: true,
+        displayRequestDuration: true,
+        defaultModelsExpandDepth: 2,
+        defaultModelExpandDepth: 2,
+        docExpansion: "list",
+        filter: true,
+        tryItOutEnabled: true,
+        requestInterceptor: function(request) {
+          // Auto-inject Bearer token from sessionStorage if stored
+          const token = sessionStorage.getItem("rag_bearer_token");
+          if (token) {
+            request.headers["Authorization"] = "Bearer " + token;
+          }
+          return request;
+        },
+        onComplete: function() {
+          // Prompt for token on load if not already set
+          const stored = sessionStorage.getItem("rag_bearer_token");
+          if (!stored) {
+            const t = prompt(
+              "Enter your Bearer JWT (from POST /login on Flask backend port 4001).\n" +
+              "Leave blank to skip — unauthenticated requests to /rag/* will return 403.",
+              ""
+            );
+            if (t && t.trim()) {
+              sessionStorage.setItem("rag_bearer_token", t.trim());
+              ui.preauthorizeApiKey("HTTPBearer", t.trim());
+            }
+          } else {
+            ui.preauthorizeApiKey("HTTPBearer", stored);
+          }
+        }
+      });
+      window.ui = ui;
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: athena-client
+  namespace: healthcare
+  labels:
+    app: athena-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: athena-client
+  template:
+    metadata:
+      labels:
+        app: athena-client
+    spec:
+      containers:
+        - name: athena-client
+          image: localhost:5000/athena-client:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4014
+          envFrom:
+            - configMapRef:
+                name: microservices-config
+            - secretRef:
+                name: microservices-secret
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4014
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4014
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: athena-client
+  namespace: healthcare
+spec:
+  selector:
+    app: athena-client
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 4014
+      targetPort: 4014
+      nodePort: 30004

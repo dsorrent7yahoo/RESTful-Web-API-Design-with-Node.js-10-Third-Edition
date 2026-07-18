@@ -1,0 +1,13 @@
+{
+  "name": "dynamodb-uploader",
+  "version": "1.0.0",
+  "description": "Reusable DynamoDB CSV uploader with table-exists confirmation callback.",
+  "main": "index.js",
+  "keywords": ["dynamodb", "csv", "upload", "aws"],
+  "license": "MIT",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "csv-parse": "^5.0.0"
+  }
+}

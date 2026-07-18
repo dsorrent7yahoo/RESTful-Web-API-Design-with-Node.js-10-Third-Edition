@@ -1,0 +1,30 @@
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, #1a2744 0%, #0d1117 60%);
+}
+
+.login-card {
+  width: 420px;
+  background: #161b22;
+  border: 1px solid #30363d;
+
+  mat-card-title .logo { font-size: 1.5rem; }
+}
+
+.full-width { width: 100%; }
+
+.submit-btn {
+  margin-top: 8px;
+  height: 42px;
+}
+
+.error-msg {
+  color: #f85149;
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+
+mat-progress-spinner { display: inline-block; }

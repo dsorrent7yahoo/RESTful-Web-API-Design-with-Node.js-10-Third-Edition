@@ -1,0 +1,186 @@
+TERRAFORM, DOCKER, FARGATE & WEB APPLICATION — WORKFLOW AND PURPOSE
+=====================================================================
+Date: 2026-06-24
+
+OVERVIEW
+--------
+These four components form a modern cloud-native deployment stack. Each layer
+has a distinct responsibility, and together they take your application code
+from a developer's machine to a scalable, production-ready service in the cloud.
+
+
+1. WEB APPLICATION
+------------------
+PURPOSE:
+  The web application is the actual business logic — the code that handles
+  HTTP requests, processes data, talks to databases, and returns responses.
+  Examples: a REST API built with Flask or Node.js/Express, a React front-end,
+  or a Spring Boot service.
+
+WHAT IT BRINGS:
+  - The reason everything else exists. Without the app, the infrastructure
+    has nothing to run.
+  - Defines the runtime requirements (language version, dependencies, ports,
+    environment variables).
+  - Contains the API routes, data models, and business rules.
+  - In this project: a Flask/Python REST API serving FHIR medication data,
+    backed by DynamoDB, and a React Vite front-end that consumes that API.
+
+
+2. DOCKER
+---------
+PURPOSE:
+  Docker packages the web application and all of its dependencies (runtime,
+  libraries, config files) into a portable, self-contained unit called an
+  image. A running image is called a container.
+
+HOW IT WORKS:
+  1. You write a Dockerfile that describes the base OS/runtime, copies your
+     source code in, installs dependencies, and sets the startup command.
+  2. `docker build` produces an immutable image tagged with a version.
+  3. `docker run` starts a container from that image — identical behaviour
+     on every machine (developer laptop, CI server, cloud).
+  4. The image is pushed to a container registry (e.g. Amazon ECR, Docker Hub)
+     so the cloud can pull it.
+
+WHAT IT BRINGS:
+  - Eliminates "works on my machine" problems.
+  - Provides environment isolation — the app cannot interfere with the host OS.
+  - Makes the app deployable to any container-aware platform (Fargate, EKS,
+    Cloud Run, etc.).
+  - Enables repeatable, versioned builds — roll back by deploying an older tag.
+  - In this project: the Dockerfile in flask-dynamo-db-backend/ defines how
+    the Flask API image is built and run inside the container.
+
+
+3. AWS FARGATE
+--------------
+PURPOSE:
+  Fargate is AWS's serverless container execution engine. It runs Docker
+  containers without requiring you to provision or manage EC2 virtual machines.
+  It operates as a launch type within Amazon ECS (Elastic Container Service)
+  or Amazon EKS.
+
+HOW IT WORKS:
+  1. You define a Task Definition — a JSON document specifying which Docker
+     image to run, how much CPU/memory to allocate, port mappings, environment
+     variables, and IAM permissions.
+  2. You create an ECS Service that says "keep N copies of this task running."
+  3. Fargate starts containers, monitors their health, and restarts them if
+     they crash — all without you managing servers.
+  4. An Application Load Balancer (ALB) sits in front and distributes HTTP
+     traffic across the running container instances.
+  5. Auto Scaling rules can add or remove container instances based on CPU
+     usage or request count.
+
+WHAT IT BRINGS:
+  - Serverless compute: no EC2 instances to patch, resize, or manage.
+  - High availability: containers run across multiple Availability Zones.
+  - Horizontal scaling: increase the desired count and Fargate spawns more
+    containers automatically.
+  - Pay-per-use: billed for the exact vCPU and memory consumed while containers
+    are running.
+  - Security isolation: each task runs in its own micro-VM boundary.
+  - In this project: ecs-fargate-task-definition.json defines the Flask API
+    container task, and the ALB endpoint is the public URL consumed by the
+    React front-end.
+
+
+4. TERRAFORM
+------------
+PURPOSE:
+  Terraform is an Infrastructure-as-Code (IaC) tool by HashiCorp. It lets you
+  define ALL of your cloud resources (VPCs, subnets, load balancers, ECS
+  clusters, IAM roles, DynamoDB tables, etc.) in declarative .tf files, then
+  creates, updates, or destroys those resources with a single command.
+
+HOW IT WORKS:
+  1. You write .tf files describing the desired end state of your infrastructure.
+  2. `terraform init`   — downloads provider plugins (e.g. the AWS provider).
+  3. `terraform plan`   — compares your .tf files to the current cloud state
+                          and shows exactly what will be created/changed/deleted.
+  4. `terraform apply`  — executes the plan, provisioning or updating resources.
+  5. `terraform destroy`— tears everything down cleanly.
+  Terraform stores a state file (terraform.tfstate) that tracks which real
+  cloud resources correspond to which .tf definitions.
+
+WHAT IT BRINGS:
+  - Repeatability: the same .tf files produce identical infrastructure every
+    time, in any AWS account or region.
+  - Version control: infrastructure changes are code changes — reviewable,
+    diffable, and auditable in Git.
+  - Dependency management: Terraform works out the correct order to create
+    resources (e.g. the VPC must exist before the subnet).
+  - Drift detection: `terraform plan` highlights if someone manually changed
+    a resource outside of Terraform.
+  - Modularity: reusable modules package common patterns (e.g. a "fargate
+    service" module that wires up ECS + ALB + security groups together).
+  - In this project: the infra/terraform/ directory contains the definitions
+    that provision the AWS environment the Flask API runs inside.
+
+
+END-TO-END WORKFLOW
+-------------------
+Below is how all four components work together to go from code to production:
+
+  DEVELOPER MACHINE
+  │
+  │  1. Write / update the web application code (Flask API, React UI).
+  │
+  │  2. Write or update the Dockerfile to describe how to package the app.
+  │
+  ▼
+  CI/CD PIPELINE (or local terminal)
+  │
+  │  3. `docker build -t my-api:v1.2 .`
+  │     → Produces a versioned, immutable Docker image.
+  │
+  │  4. `docker push <ecr-repo>/my-api:v1.2`
+  │     → Uploads the image to Amazon ECR (container registry).
+  │
+  ▼
+  TERRAFORM (infra/terraform/)
+  │
+  │  5. `terraform apply`
+  │     → Creates/updates: VPC, subnets, security groups, IAM roles,
+  │       DynamoDB table, ECS Cluster, Task Definition (pointing at the
+  │       new image tag), ECS Service, Application Load Balancer, and
+  │       Auto Scaling policies.
+  │
+  ▼
+  AWS FARGATE (ECS Service)
+  │
+  │  6. Fargate pulls the Docker image from ECR.
+  │
+  │  7. Starts N container instances of the Flask API across multiple
+  │     Availability Zones.
+  │
+  │  8. The ALB performs health checks and routes internet traffic to
+  │     healthy containers.
+  │
+  │  9. If a container crashes, Fargate automatically replaces it.
+  │     If traffic spikes, Auto Scaling adds more containers.
+  │
+  ▼
+  END USERS / REACT FRONT-END
+  │
+  │  10. The React app (running in the user's browser or on a static host)
+  │      makes HTTP calls to the ALB DNS name.
+  │
+  │  11. The ALB forwards requests to a Fargate container running the
+  │      Flask API, which reads/writes DynamoDB and returns JSON.
+
+
+SUMMARY TABLE
+-------------
+Component       Layer           Primary Role
+-----------     --------        --------------------------------------------
+Web Application Business Logic  Implements API routes, data models, rules
+Docker          Packaging       Bundles app + dependencies into a portable image
+Fargate         Compute         Runs containers serverlessly, scales, heals
+Terraform       Provisioning    Defines and manages all cloud infrastructure as code
+
+Each layer is independently replaceable: swap Flask for Node.js (app layer),
+swap Fargate for EKS (compute layer), swap Terraform for CDK or Pulumi (IaC
+layer) — the others remain unchanged. This separation of concerns is the
+foundation of modern cloud-native architecture.

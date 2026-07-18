@@ -1,0 +1,104 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "npm install",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": "build",
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm test",
+            "type": "shell",
+            "command": "npm test",
+            "options": { "cwd": "${workspaceFolder}" },
+            "group": "test",
+            "presentation": { "reveal": "always", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: api-gateway",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/api-gateway" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: dynamo-db-backend",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/dynamo-db-backend" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: dynamo-db-frontend",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/dynamo-db-frontend" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: flask-dynamo-db-frontend",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/flask-dynamo-db-frontend" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: django-front-end",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/django-front-end" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: Django-Fronend-Typescript",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/Django-Fronend-Typescript" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "npm install: landing-page",
+            "type": "shell",
+            "command": "npm install",
+            "options": { "cwd": "${workspaceFolder}/landing-page" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        },
+        {
+            "label": "install: all services",
+            "dependsOn": [
+                "npm install",
+                "npm install: api-gateway",
+                "npm install: dynamo-db-backend",
+                "npm install: dynamo-db-frontend",
+                "npm install: flask-dynamo-db-frontend",
+                "npm install: django-front-end",
+                "npm install: Django-Fronend-Typescript",
+                "npm install: landing-page",
+                "pip install: rag-api"
+            ],
+            "dependsOrder": "parallel",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "pip install: rag-api",
+            "type": "shell",
+            "command": "pip install -r requirements.txt",
+            "options": { "cwd": "${workspaceFolder}/rag-api" },
+            "presentation": { "reveal": "silent", "panel": "shared" },
+            "problemMatcher": []
+        }
+    ]
+}

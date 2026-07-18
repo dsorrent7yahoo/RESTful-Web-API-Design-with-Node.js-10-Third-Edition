@@ -1,0 +1,1412 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Django DynamoDB Medical Records API",
+    "version": "1.0.0",
+    "description": "REST endpoints for the Django REST Framework backend (Chapter04/django-back-end). Medications CRUD, generic CSV → DynamoDB upload, DynamoDB → S3 export, AWS Glue Data Catalog registration, and JWT authentication.\n\n**Related service:** [Healthcare RAG API → Clinical Decision Support](/rag-openapi.json) — Retrieval-Augmented Generation powered by ClinicalBERT and AWS Bedrock Claude Sonnet 4.6 (port 4005)."
+  },
+  "externalDocs": {
+    "description": "Healthcare RAG API — Interactive Swagger UI (port 4005)",
+    "url": "http://localhost:4005/docs"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4002",
+      "description": "Local Django backend"
+    }
+  ],
+  "security": [
+    { "BearerAuth": [] }
+  ],
+  "tags": [
+    {
+      "name": "Medications",
+      "description": "Medication operations backed by DynamoDB"
+    },
+    {
+      "name": "Tables",
+      "description": "DynamoDB table management"
+    },
+    {
+      "name": "Launcher",
+      "description": "Frontend launch helpers"
+    },
+    {
+      "name": "Upload",
+      "description": "Generic CSV to DynamoDB uploader (DynamoUploader)"
+    },
+    {
+      "name": "Export",
+      "description": "DynamoDB \u2192 S3 export and AWS Glue Data Catalog registration for Databricks"
+    }
+  ],
+  "paths": {
+    "/launch/frontend": {
+      "get": {
+        "tags": [
+          "Launcher"
+        ],
+        "summary": "Get frontend URL",
+        "description": "Returns the React frontend URL. Open the returned url in your browser.",
+        "responses": {
+          "200": {
+            "description": "Frontend URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "example": "http://localhost:5174"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tables": {
+      "get": {
+        "tags": [
+          "Tables"
+        ],
+        "summary": "List all DynamoDB tables",
+        "description": "Returns the names of all tables currently present in the DynamoDB instance.",
+        "responses": {
+          "200": {
+            "description": "Array of table names",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tables": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "medications",
+                        "patients"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications with paging",
+        "parameters": [
+          {
+            "name": "topN",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 10
+            },
+            "description": "Optional top N rows to return. If provided, it takes precedence over limit."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 50
+            }
+          },
+          {
+            "name": "startKey",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "JSON-encoded DynamoDB exclusive start key"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on row id"
+          },
+          {
+            "name": "patientId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on patient id"
+          },
+          {
+            "name": "medicationId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional exact match on medication id (stored as code)"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["asc", "desc"],
+              "example": "asc"
+            },
+            "description": "Sort all results by description alphabetically. 'asc' = A→Z, 'desc' = Z→A. Performs a full table scan; use with topN to cap results."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Medication"
+                      }
+                    },
+                    "lastEvaluatedKey": {
+                      "type": "object",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Create medication",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Medication"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created medication"
+          }
+        }
+      }
+    },
+    "/medications/id/{id}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Medication document",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Medication"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/medications/patient/{patient}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by patient",
+        "parameters": [
+          {
+            "name": "patient",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/code/{code}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by code",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/medication/{medicationId}": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get medications by medication id",
+        "parameters": [
+          {
+            "name": "medicationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Filtered medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Medication"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/patients/multiple-medications": {
+      "get": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Get patients taking more than one medication",
+        "parameters": [
+          {
+            "name": "topN",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "example": 10
+            },
+            "description": "Optional limit for top patients by medication count"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Patients with multiple medications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalPatients": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PatientMedicationSummary"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/medications/{id}": {
+      "put": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Update medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Medication"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated medication"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Delete medication by id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Delete status"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/medications/upload": {
+      "post": {
+        "tags": [
+          "Medications"
+        ],
+        "summary": "Upload Files to DyanmoDB Tables",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Optional DynamoDB table name. Table is auto-created if missing.",
+                    "example": "medications"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Set true to delete and recreate the target table before upload.",
+                    "example": false
+                  },
+                  "csvPath": {
+                    "type": "string",
+                    "description": "Optional absolute path to a CSV file on the backend machine. If omitted and csvContent is not provided, server default CSV file is used.",
+                    "example": "C:/Users/Dan/OneDrive/RESTful-Web-API-Design-with-Node.js-10-Third-Edition/coherent-11-07-2022/csv/medications.csv"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "description": "Optional source file name when uploading csvContent from browser.",
+                    "example": "medications-upload.csv"
+                  },
+                  "csvContent": {
+                    "type": "string",
+                    "description": "Optional raw CSV text content. Useful for browser file uploads.",
+                    "example": "START,STOP,PATIENT,PAYER,ENCOUNTER,CODE,DESCRIPTION,BASE_COST,PAYER_COVERAGE,DISPENSES,TOTALCOST,REASONCODE,REASONDESCRIPTION\\n2003-04-27T10:01:56Z,,patient-1,payer-1,enc-1,2001499,Vitamin B 12 5 MG/ML Injectable Solution,2.29,0.00,1,2.29,,"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Target DynamoDB table name.",
+                    "example": "patients"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Set true to delete and recreate the target table before upload.",
+                    "example": false
+                  },
+                  "csvFile": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "CSV file to upload from your machine."
+                  }
+                }
+              },
+              "encoding": {
+                "csvFile": {
+                  "contentType": "text/csv"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "imported": {
+                      "type": "integer"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Confirmation required when target table already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "confirm_required"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    },
+                    "requiresConfirmation": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload any CSV into any DynamoDB table",
+        "description": "Generic CSV uploader backed by the Python DynamoUploader class (tools/dynamo_uploader.py \u2014 equivalent of dynamodb-uploader/index.js). Accepts JSON body or multipart/form-data. Returns 409 with requiresConfirmation=true if the table already exists and replaceExistingTable is not set.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tableName"
+                ],
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "example": "patients"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "example": false
+                  },
+                  "keyAttributeName": {
+                    "type": "string",
+                    "default": "id",
+                    "example": "id"
+                  },
+                  "keyAttributeType": {
+                    "type": "string",
+                    "default": "S",
+                    "enum": [
+                      "S",
+                      "N",
+                      "B"
+                    ]
+                  },
+                  "batchSize": {
+                    "type": "integer",
+                    "default": 25
+                  },
+                  "csvFile": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "CSV file to upload."
+                  }
+                }
+              },
+              "encoding": {
+                "csvFile": {
+                  "contentType": "text/csv"
+                }
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tableName"
+                ],
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Target DynamoDB table name. Created automatically if missing.",
+                    "example": "patients"
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Set true to delete and recreate the table before upload.",
+                    "example": false
+                  },
+                  "csvPath": {
+                    "type": "string",
+                    "description": "Absolute path to a CSV file on the server.",
+                    "example": "C:/Users/Owner/OneDrive/RESTful-Web-API-Design-with-Node.js-10-Third-Edition/coherent-11-07-2022/csv/patients.csv"
+                  },
+                  "csvContent": {
+                    "type": "string",
+                    "description": "Raw CSV text. Alternative to csvPath.",
+                    "example": "Id,BIRTHDATE,FIRST,LAST\npatient-1,1980-01-01,Jane,Doe"
+                  },
+                  "fileName": {
+                    "type": "string",
+                    "description": "Source label shown in the response (used when sending csvContent).",
+                    "example": "patients.csv"
+                  },
+                  "keyAttributeName": {
+                    "type": "string",
+                    "description": "DynamoDB HASH key attribute name.",
+                    "default": "id",
+                    "example": "id"
+                  },
+                  "keyAttributeType": {
+                    "type": "string",
+                    "description": "DynamoDB HASH key attribute type (S, N, or B).",
+                    "default": "S",
+                    "enum": [
+                      "S",
+                      "N",
+                      "B"
+                    ],
+                    "example": "S"
+                  },
+                  "batchSize": {
+                    "type": "integer",
+                    "description": "Items per BatchWrite call (max 25).",
+                    "default": 25,
+                    "example": 25
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "imported": {
+                      "type": "integer",
+                      "example": 1000
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Confirmation required \u2014 table already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "confirm_required"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "tableName": {
+                      "type": "string"
+                    },
+                    "requiresConfirmation": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request (missing tableName, invalid csvPath, etc.)"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/export/s3/buckets": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "List S3 buckets",
+        "description": "Returns all S3 buckets visible to the configured AWS credentials.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bucket list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "buckets": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "my-healthcare-exports"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "AWS error"
+          }
+        }
+      }
+    },
+    "/export/s3": {
+      "post": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "Export DynamoDB table \u2192 S3",
+        "description": "Scans an entire DynamoDB table and uploads it to S3 as CSV or NDJSON. The resulting S3 object can be read directly by Databricks or registered in the Glue Data Catalog via POST /export/glue.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tableName",
+                  "bucket"
+                ],
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "DynamoDB table to export.",
+                    "example": "medications"
+                  },
+                  "bucket": {
+                    "type": "string",
+                    "description": "Destination S3 bucket name.",
+                    "example": "my-healthcare-exports"
+                  },
+                  "prefix": {
+                    "type": "string",
+                    "description": "S3 key prefix. Defaults to exports/<tableName>/.",
+                    "example": "exports/medications/"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "csv",
+                      "ndjson"
+                    ],
+                    "default": "csv",
+                    "description": "Output format. Use csv for Glue/Databricks; ndjson for schema-free loading.",
+                    "example": "csv"
+                  },
+                  "createBucket": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Create the S3 bucket if it does not exist.",
+                    "example": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Export complete",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "s3Uri": {
+                      "type": "string",
+                      "example": "s3://my-healthcare-exports/exports/medications/medications.csv"
+                    },
+                    "s3Bucket": {
+                      "type": "string",
+                      "example": "my-healthcare-exports"
+                    },
+                    "s3Key": {
+                      "type": "string",
+                      "example": "exports/medications/medications.csv"
+                    },
+                    "rows": {
+                      "type": "integer",
+                      "example": 4200
+                    },
+                    "sizeBytes": {
+                      "type": "integer",
+                      "example": 512000
+                    },
+                    "format": {
+                      "type": "string",
+                      "example": "csv"
+                    },
+                    "tableName": {
+                      "type": "string",
+                      "example": "medications"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing tableName/bucket or bucket does not exist and createBucket=false"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "AWS error"
+          }
+        }
+      }
+    },
+    "/export/glue/databases": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "List Glue databases",
+        "description": "Returns all AWS Glue Data Catalog databases.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Database list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "databases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "healthcare"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "AWS error"
+          }
+        }
+      }
+    },
+    "/export/glue/databases/{database}/tables": {
+      "get": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "List Glue tables in a database",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "database",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "healthcare"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Table list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "database": {
+                      "type": "string"
+                    },
+                    "tables": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "medications",
+                        "patients"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "AWS error"
+          }
+        }
+      }
+    },
+    "/export/glue": {
+      "post": {
+        "tags": [
+          "Export"
+        ],
+        "summary": "Register S3 path in Glue Data Catalog",
+        "description": "Creates or updates an AWS Glue Data Catalog table pointing at an S3 location. Databricks can then query the table via the Glue metastore without copying data. Run POST /export/s3 first to get the s3Uri, then call this endpoint to register it.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "database",
+                  "tableName",
+                  "s3Uri"
+                ],
+                "properties": {
+                  "database": {
+                    "type": "string",
+                    "description": "Glue database name.",
+                    "example": "healthcare"
+                  },
+                  "tableName": {
+                    "type": "string",
+                    "description": "Glue table name.",
+                    "example": "medications"
+                  },
+                  "s3Uri": {
+                    "type": "string",
+                    "description": "S3 URI returned by POST /export/s3 (must end with /).",
+                    "example": "s3://my-healthcare-exports/exports/medications/"
+                  },
+                  "format": {
+                    "type": "string",
+                    "enum": [
+                      "csv",
+                      "ndjson"
+                    ],
+                    "default": "csv",
+                    "description": "Format of the data files in S3.",
+                    "example": "csv"
+                  },
+                  "createDatabase": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Create the Glue database if it does not exist.",
+                    "example": true
+                  },
+                  "columns": {
+                    "type": "array",
+                    "description": "Optional column schema. If omitted, Glue will use string for all columns.",
+                    "example": [
+                      {
+                        "name": "id",
+                        "type": "string"
+                      },
+                      {
+                        "name": "patient",
+                        "type": "string"
+                      },
+                      {
+                        "name": "baseCost",
+                        "type": "double"
+                      },
+                      {
+                        "name": "start",
+                        "type": "string"
+                      },
+                      {
+                        "name": "description",
+                        "type": "string"
+                      }
+                    ],
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string",
+                          "default": "string",
+                          "enum": [
+                            "string",
+                            "int",
+                            "bigint",
+                            "double",
+                            "float",
+                            "boolean",
+                            "timestamp",
+                            "date"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Glue table registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "database": {
+                      "type": "string",
+                      "example": "healthcare"
+                    },
+                    "tableName": {
+                      "type": "string",
+                      "example": "medications"
+                    },
+                    "s3Uri": {
+                      "type": "string",
+                      "example": "s3://my-healthcare-exports/exports/medications/"
+                    },
+                    "format": {
+                      "type": "string",
+                      "example": "csv"
+                    },
+                    "action": {
+                      "type": "string",
+                      "enum": [
+                        "created",
+                        "updated"
+                      ],
+                      "example": "created"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "500": {
+            "description": "AWS error"
+          }
+        }
+      }
+    },
+    "/upload/file": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload CSV file via file picker",
+        "description": "Multipart upload only \u2014 Swagger UI renders this as a native Choose File button with no content-type dropdown. Pick any .csv file from your machine.",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tableName",
+                  "csvFile"
+                ],
+                "properties": {
+                  "tableName": {
+                    "type": "string",
+                    "description": "Target DynamoDB table. Created automatically if missing.",
+                    "example": "allergies"
+                  },
+                  "csvFile": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "CSV file to upload."
+                  },
+                  "replaceExistingTable": {
+                    "type": "boolean",
+                    "description": "Delete and recreate the table before upload.",
+                    "example": false
+                  },
+                  "keyAttributeName": {
+                    "type": "string",
+                    "default": "id",
+                    "example": "id"
+                  },
+                  "keyAttributeType": {
+                    "type": "string",
+                    "default": "S",
+                    "enum": [
+                      "S",
+                      "N",
+                      "B"
+                    ]
+                  },
+                  "batchSize": {
+                    "type": "integer",
+                    "default": 25,
+                    "example": 25
+                  }
+                }
+              },
+              "encoding": {
+                "csvFile": {
+                  "contentType": "text/csv"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Upload successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "imported": {
+                      "type": "integer",
+                      "example": 707
+                    },
+                    "source": {
+                      "type": "string",
+                      "example": "allergies.csv"
+                    },
+                    "tableName": {
+                      "type": "string",
+                      "example": "allergies"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Table exists \u2014 set replaceExistingTable=true to replace"
+          },
+          "400": {
+            "description": "Missing tableName or csvFile"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter the JWT token from POST /auth/login (accessToken field). Example: eyJhbGci..."
+      }
+    },
+    "schemas": {
+      "PatientMedicationSummary": {
+        "type": "object",
+        "properties": {
+          "patientId": {
+            "type": "string"
+          },
+          "medicationCount": {
+            "type": "integer"
+          },
+          "medications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MedicationUsage"
+            }
+          }
+        }
+      },
+      "MedicationUsage": {
+        "type": "object",
+        "properties": {
+          "medicationId": {
+            "type": "string"
+          },
+          "medicationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "count": {
+            "type": "integer"
+          }
+        }
+      },
+      "Medication": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stop": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "patient": {
+            "type": "string"
+          },
+          "payer": {
+            "type": "string"
+          },
+          "encounter": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "baseCost": {
+            "type": "number"
+          },
+          "payerCoverage": {
+            "type": "number"
+          },
+          "dispenses": {
+            "type": "number"
+          },
+          "totalCost": {
+            "type": "number"
+          },
+          "reasonCode": {
+            "type": "string"
+          },
+          "reasonDescription": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

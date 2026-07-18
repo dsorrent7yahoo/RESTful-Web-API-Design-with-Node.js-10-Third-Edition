@@ -1,0 +1,434 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Diagnosis Support API",
+    "description": "## Evidence-Based Clinical Diagnosis Assistance\n\nGenerates CPG-grounded differential diagnoses from patient lab results\nand medication context.  Every diagnosis includes ICD-10/SNOMED codes and\nis supported by a citation to a retrieved clinical source.\n\n**Powered by:** RAG API (port 4005) \u00b7 Claude Sonnet 4.6 \u00b7 LOINC + medications corpus\n\n**Research basis:** GARMLE-G arXiv:2506.21615 \u00b7 REALM arXiv:2402.07016",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Service health check",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnosis/evaluate": {
+      "post": {
+        "tags": [
+          "Diagnosis"
+        ],
+        "summary": "Full GARMLE-G diagnosis from patient context",
+        "description": "Generates a structured evidence-based diagnosis using the GARMLE-G framework.\n\nOutput sections (following GARMLE-G output format):\n- **PRIMARY DIAGNOSIS** \u2014 most likely diagnosis with ICD-10/SNOMED code\n- **DIFFERENTIAL** \u2014 up to 3 alternative diagnoses with rationale\n- **GUIDELINE SUPPORT** \u2014 specific CPG passage citation [source: id]\n- **RECOMMENDED WORKUP** \u2014 tests and referrals per the guideline\n\nProvide lab values, current medications, and/or symptoms for best results.",
+        "operationId": "evaluate_patient_diagnosis_evaluate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatientContext"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnosis/patient/{patient_id}": {
+      "post": {
+        "tags": [
+          "Diagnosis"
+        ],
+        "summary": "Diagnosis using stored patient EHR data",
+        "description": "Loads the patient's active medications, conditions, and observations\ndirectly from DynamoDB (PACE-RAG pattern) and generates a diagnosis.\n\n`patient_id` must be a valid UUID from the `medications` DynamoDB table.",
+        "operationId": "evaluate_by_patient_id_diagnosis_patient__patient_id__post",
+        "parameters": [
+          {
+            "name": "patient_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Patient Id"
+            }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 5,
+              "title": "Top K"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnosis/lab": {
+      "post": {
+        "tags": [
+          "Lab Interpretation"
+        ],
+        "summary": "Interpret a single lab value in clinical context",
+        "description": "Looks up the LOINC reference range for the specified test and generates\na clinical interpretation with normal/abnormal status and clinical significance.\n\nExamples: HbA1c 7.4% \u00b7 Hemoglobin 9.2 g/dL \u00b7 Systolic BP 145 mm[Hg]",
+        "operationId": "interpret_lab_diagnosis_lab_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabInterpretationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Interpret Lab Diagnosis Lab Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DiagnosisResponse": {
+        "properties": {
+          "primary_diagnosis": {
+            "type": "string",
+            "title": "Primary Diagnosis"
+          },
+          "icd_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icd Code"
+          },
+          "differential": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Differential"
+          },
+          "guideline_support": {
+            "type": "string",
+            "title": "Guideline Support"
+          },
+          "recommended_workup": {
+            "type": "string",
+            "title": "Recommended Workup"
+          },
+          "full_report": {
+            "type": "string",
+            "title": "Full Report"
+          },
+          "sources_count": {
+            "type": "integer",
+            "title": "Sources Count"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "title": "Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "primary_diagnosis",
+          "icd_code",
+          "differential",
+          "guideline_support",
+          "recommended_workup",
+          "full_report",
+          "sources_count",
+          "latency_ms"
+        ],
+        "title": "DiagnosisResponse",
+        "description": "Structured diagnosis response."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LabInterpretationRequest": {
+        "properties": {
+          "loinc_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loinc Code",
+            "description": "LOINC code (e.g. '4548-4' for HbA1c)"
+          },
+          "lab_name": {
+            "type": "string",
+            "title": "Lab Name",
+            "description": "Lab test name (e.g. 'HbA1c', 'Hemoglobin')"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value",
+            "description": "Measured value with units (e.g. '7.4%', '125 mg/dL')"
+          },
+          "patient_conditions": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Patient Conditions",
+            "description": "Known conditions for context (e.g. ['diabetes', 'hypertension'])"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lab_name",
+          "value"
+        ],
+        "title": "LabInterpretationRequest",
+        "description": "Request for interpreting a single lab value."
+      },
+      "PatientContext": {
+        "properties": {
+          "lab_values": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Values",
+            "description": "LOINC-coded lab values as {code_or_name: value_with_units}",
+            "examples": [
+              {
+                "Fasting glucose": "6.8 mmol/L",
+                "HbA1c (4548-4)": "7.4%"
+              }
+            ]
+          },
+          "current_medications": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Medications",
+            "description": "Active medication names",
+            "examples": [
+              [
+                "Metformin 500 MG",
+                "Lisinopril 10 MG"
+              ]
+            ]
+          },
+          "symptoms": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symptoms",
+            "description": "Reported symptoms",
+            "examples": [
+              [
+                "excessive thirst",
+                "frequent urination",
+                "fatigue"
+              ]
+            ]
+          },
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age",
+            "description": "Patient age in years"
+          },
+          "sex": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sex",
+            "description": "Patient biological sex (M/F)"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 5
+          }
+        },
+        "type": "object",
+        "title": "PatientContext",
+        "description": "Clinical data for one patient visit."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,0 +1,107 @@
+# docker-compose.microservices.yml
+# Runs all 5 FHIR microservices independently.
+# Start all:  docker compose -f docker-compose.microservices.yml up --build
+# Start one:  docker compose -f docker-compose.microservices.yml up glue-catalog --build
+#
+# Service ports:
+#   glue-catalog         → 4010  (POST /upload/glue-csv)
+#   claims-generator     → 4011  (POST /claims/generate, GET /claims/files, GET /claims/file)
+#   claims-cleaner       → 4012  (POST /claims/clean, POST /claims/process-all, GET /claims/parquet-files)
+#   sqs-monitor          → 4013  (GET|DELETE /sqs/messages, POST /sqs/ack, GET /sqs/stats, /sqs/email-log, /sqs/dlq)
+#   athena-client        → 4014  (GET /athena/databases|tables|schema, POST /athena/query|generate-sql)
+#   patients-encounters  → 4015  (POST /patients/generate, POST /encounters/generate, GET /patients/files, GET /encounters/files)
+
+x-common-env: &common-env
+  AWS_REGION: ${AWS_REGION:-us-east-1}
+  JWT_SECRET: ${JWT_SECRET:-health-care-dev-secret}
+  STAGING_BUCKET: ${STAGING_BUCKET:-dgs-glue-staging}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+  AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+
+services:
+  glue-catalog:
+    build: ./microservices/glue_catalog
+    ports:
+      - "4010:4010"
+    environment:
+      <<: *common-env
+    volumes:
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+
+  claims-generator:
+    build: ./microservices/claims_generator
+    ports:
+      - "4011:4011"
+    environment:
+      <<: *common-env
+      LAMBDA_DIR: /app/lambdas
+      CLAIMS_PREFIX: ${CLAIMS_PREFIX:-claims/}
+      SQS_QUEUE_URL: ${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results}
+    volumes:
+      - ./django-back-end/lambdas:/app/lambdas:ro
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+
+  claims-cleaner:
+    build: ./microservices/claims_cleaner
+    ports:
+      - "4012:4012"
+    environment:
+      <<: *common-env
+      LAMBDA_DIR: /app/lambdas
+      CLAIMS_PREFIX: ${CLAIMS_PREFIX:-claims/}
+      CLEAN_PREFIX: ${CLEAN_PREFIX:-claims-parquet/}
+      GLUE_DATABASE: ${GLUE_DATABASE:-fhir-table-db}
+      GLUE_TABLE: ${GLUE_TABLE:-claims_clean}
+      SQS_QUEUE_URL: ${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results}
+    volumes:
+      - ./django-back-end/lambdas:/app/lambdas:ro
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+
+  sqs-monitor:
+    build: ./microservices/sqs_monitor
+    ports:
+      - "4013:4013"
+    environment:
+      <<: *common-env
+      SQS_QUEUE_URL: ${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results}
+      DLQ_QUEUE_URL: ${DLQ_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results-dlq}
+      SES_SENDER: ${SES_SENDER:-dgsaws@yahoo.com}
+      SES_RECIPIENT: ${SES_RECIPIENT:-dsorrent7@gmail.com}
+      SQS_POLL_INTERVAL: ${SQS_POLL_INTERVAL:-5}
+      DYNAMO_EMAIL_LOG_TABLE: ${DYNAMO_EMAIL_LOG_TABLE:-dgs-sqs-email-log}
+    volumes:
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+
+  athena-client:
+    build: ./microservices/athena_client
+    ports:
+      - "4014:4014"
+    environment:
+      <<: *common-env
+      ATHENA_OUTPUT_PREFIX: ${ATHENA_OUTPUT_PREFIX:-athena-results/}
+      GLUE_DATABASE: ${GLUE_DATABASE:-fhir-table-db}
+      ATHENA_WORKGROUP: ${ATHENA_WORKGROUP:-primary}
+    volumes:
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped
+
+  patients-encounters:
+    build: ./microservices/patients_encounters
+    ports:
+      - "4015:4015"
+    environment:
+      <<: *common-env
+      LAMBDA_DIR: /app/lambdas
+      PATIENTS_PREFIX: ${PATIENTS_PREFIX:-patients/}
+      ENCOUNTERS_PREFIX: ${ENCOUNTERS_PREFIX:-encounters/}
+      GLUE_DATABASE: ${GLUE_DATABASE:-fhir-table-db}
+      SQS_QUEUE_URL: ${SQS_QUEUE_URL:-https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results}
+    volumes:
+      - ./django-back-end/lambdas:/app/lambdas:ro
+      - "/c/Users/Owner/.aws:/root/.aws:ro"
+    restart: unless-stopped

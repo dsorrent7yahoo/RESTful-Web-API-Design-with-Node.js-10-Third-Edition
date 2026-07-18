@@ -1,0 +1,11 @@
+{
+  "nova_pro_direct": "amazon.nova-pro-v1:0",
+  "nova_pro_profile": "us.amazon.nova-pro-v1:0",
+  "nova_lite_direct": "amazon.nova-lite-v1:0",
+  "nova_micro_direct": "amazon.nova-micro-v1:0",
+  "claude_sonnet_46": "us.anthropic.claude-sonnet-4-6",
+  "claude_sonnet_4_0": "us.anthropic.claude-sonnet-4-20250514-v1:0",
+  "claude_haiku_45": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "titan_embed_v2": "amazon.titan-embed-text-v2:0",
+  "note": "Nova models: use direct model ID (on-demand supported). Claude models: MUST use inference profile prefix (us./ global.) for on-demand. Titan embed: use direct model ID for Bedrock embedding backend."
+}

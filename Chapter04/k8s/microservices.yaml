@@ -1,0 +1,358 @@
+# ============================================================
+# Chapter04 — Django Microservices on local Kubernetes
+# NodePort map:
+#   30000  glue-catalog       (export_app)
+#   30001  claims-generator   (claims_app — generate)
+#   30002  claims-cleaner     (claims_app — clean)
+#   30003  sqs-monitor        (sqs_app)
+#   30004  athena-client      (athena_app)
+# ============================================================
+
+# -- Namespace -----------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chapter04
+
+---
+# -- Shared ConfigMap ----------------------------------------
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: django-config
+  namespace: chapter04
+data:
+  DJANGO_SETTINGS_MODULE: config.settings
+  DJANGO_SECRET_KEY: django-insecure-dev-secret-change-in-production
+  DEBUG: "true"
+  ALLOWED_HOSTS: "*"
+  PORT: "4002"
+  # AWS
+  AWS_REGION: us-east-1
+  # DynamoDB
+  DYNAMODB_TABLE: medications
+  # Auth
+  JWT_SECRET: health-care-dev-secret
+  JWT_EXP_MINUTES: "60"
+  # S3 / Glue / Claims
+  STAGING_BUCKET: dgs-glue-staging
+  CLAIMS_PREFIX: claims/
+  CLEAN_PREFIX: clean/
+  GLUE_DATABASE: healthcare
+  # Athena
+  ATHENA_OUTPUT_PREFIX: athena-results/
+  ATHENA_WORKGROUP: primary
+  # SQS  (fill in your queue URLs)
+  SQS_QUEUE_URL: ""
+  DLQ_QUEUE_URL: ""
+  DYNAMO_EMAIL_LOG_TABLE: email-log
+
+---
+# ============================================================
+# 1. GLUE CATALOG  — NodePort 30000
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: glue-catalog
+  namespace: chapter04
+spec:
+  type: NodePort
+  selector:
+    app: glue-catalog
+  ports:
+    - port: 80
+      targetPort: 4002
+      nodePort: 30000
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: glue-catalog
+  namespace: chapter04
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: glue-catalog
+  template:
+    metadata:
+      labels:
+        app: glue-catalog
+    spec:
+      containers:
+        - name: glue-catalog
+          image: chapter04-django-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4002
+          envFrom:
+            - configMapRef:
+                name: django-config
+          env:
+            - name: SERVICE_ROLE
+              value: glue-catalog
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+
+---
+# ============================================================
+# 2. CLAIMS GENERATOR  — NodePort 30001
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-generator
+  namespace: chapter04
+spec:
+  type: NodePort
+  selector:
+    app: claims-generator
+  ports:
+    - port: 80
+      targetPort: 4002
+      nodePort: 30001
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-generator
+  namespace: chapter04
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claims-generator
+  template:
+    metadata:
+      labels:
+        app: claims-generator
+    spec:
+      containers:
+        - name: claims-generator
+          image: chapter04-django-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4002
+          envFrom:
+            - configMapRef:
+                name: django-config
+          env:
+            - name: SERVICE_ROLE
+              value: claims-generator
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+
+---
+# ============================================================
+# 3. CLAIMS CLEANER  — NodePort 30002
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: claims-cleaner
+  namespace: chapter04
+spec:
+  type: NodePort
+  selector:
+    app: claims-cleaner
+  ports:
+    - port: 80
+      targetPort: 4002
+      nodePort: 30002
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claims-cleaner
+  namespace: chapter04
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claims-cleaner
+  template:
+    metadata:
+      labels:
+        app: claims-cleaner
+    spec:
+      containers:
+        - name: claims-cleaner
+          image: chapter04-django-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4002
+          envFrom:
+            - configMapRef:
+                name: django-config
+          env:
+            - name: SERVICE_ROLE
+              value: claims-cleaner
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+
+---
+# ============================================================
+# 4. SQS MONITOR  — NodePort 30003
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqs-monitor
+  namespace: chapter04
+spec:
+  type: NodePort
+  selector:
+    app: sqs-monitor
+  ports:
+    - port: 80
+      targetPort: 4002
+      nodePort: 30003
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqs-monitor
+  namespace: chapter04
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqs-monitor
+  template:
+    metadata:
+      labels:
+        app: sqs-monitor
+    spec:
+      containers:
+        - name: sqs-monitor
+          image: chapter04-django-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4002
+          envFrom:
+            - configMapRef:
+                name: django-config
+          env:
+            - name: SERVICE_ROLE
+              value: sqs-monitor
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
+
+---
+# ============================================================
+# 5. ATHENA CLIENT  — NodePort 30004
+# ============================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: athena-client
+  namespace: chapter04
+spec:
+  type: NodePort
+  selector:
+    app: athena-client
+  ports:
+    - port: 80
+      targetPort: 4002
+      nodePort: 30004
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: athena-client
+  namespace: chapter04
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: athena-client
+  template:
+    metadata:
+      labels:
+        app: athena-client
+    spec:
+      containers:
+        - name: athena-client
+          image: chapter04-django-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4002
+          envFrom:
+            - configMapRef:
+                name: django-config
+          env:
+            - name: SERVICE_ROLE
+              value: athena-client
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials

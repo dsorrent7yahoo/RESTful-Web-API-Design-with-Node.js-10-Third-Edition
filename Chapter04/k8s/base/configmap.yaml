@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: microservices-config
+  namespace: healthcare
+data:
+  AWS_REGION: "us-east-1"
+  STAGING_BUCKET: "dgs-glue-staging"
+  GLUE_DATABASE: "fhir-table-db"
+  CLAIMS_PREFIX: "claims/"
+  CLEAN_PREFIX: "claims-parquet/"
+  PATIENTS_PREFIX: "patients/"
+  ENCOUNTERS_PREFIX: "encounters/"
+  ATHENA_OUTPUT_PREFIX: "athena-results/"
+  ATHENA_WORKGROUP: "primary"
+  SQS_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results"
+  DLQ_QUEUE_URL: "https://sqs.us-east-1.amazonaws.com/005905648819/dgs-fhir-lambda-results-dlq"
+  DYNAMO_EMAIL_LOG_TABLE: "dgs-sqs-email-log"
