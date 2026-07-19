@@ -143,12 +143,19 @@ jobs:
       - name: Validate AWS credentials (deploy)
         run: aws sts get-caller-identity
 
-      - name: Ensure ECS service has at least one running task
+      - name: Stop ECS service before hard rebuild
         run: |
           aws ecs update-service \
             --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
-            --desired-count 1 > /dev/null
+            --desired-count 0 > /dev/null
+
+      - name: Wait for ECS service to drain
+        run: |
+          aws ecs wait services-stable \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --services "${{ env.ECS_SERVICE }}"
+
       - name: Fetch current task definition from ECS
         run: |
           aws ecs describe-task-definition \
@@ -172,10 +179,11 @@ jobs:
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
 
-      - name: Force ECS to roll fresh tasks on the new image
+      - name: Bring ECS service back up on the rebuilt image
         run: |
           aws ecs update-service \
             --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
+            --desired-count 1 \
             --force-new-deployment \
-            --desired-count 1 > /dev/null
+            > /dev/null
