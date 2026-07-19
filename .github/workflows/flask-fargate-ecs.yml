@@ -82,7 +82,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Fallback to static AWS credentials (build)
-        if: steps.aws-creds-oidc-build.outcome == 'failure'
+        if: steps.aws-creds-oidc-build.conclusion == 'failure'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -134,7 +134,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Fallback to static AWS credentials (deploy)
-        if: steps.aws-creds-oidc-deploy.outcome == 'failure'
+        if: steps.aws-creds-oidc-deploy.conclusion == 'failure'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
