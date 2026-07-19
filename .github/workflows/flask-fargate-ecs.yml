@@ -1,5 +1,5 @@
 name: flask-fargate-ecs
-# retrigger: path-filtered push marker v2
+# retrigger: path-filtered push marker v3
 
 on:
   push:
