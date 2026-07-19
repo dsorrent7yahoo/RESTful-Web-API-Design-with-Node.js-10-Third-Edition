@@ -118,3 +118,33 @@ variable "assign_public_ip" {
   type        = bool
   default     = false
 }
+
+variable "enable_claims_pipeline" {
+  description = "Create a Step Functions claims pipeline and wire its ARN into the ECS container environment"
+  type        = bool
+  default     = false
+}
+
+variable "generate_lambda_arn" {
+  description = "Lambda ARN for synthetic claims generation step"
+  type        = string
+  default     = ""
+}
+
+variable "clean_lambda_arn" {
+  description = "Lambda ARN for claims cleaning step"
+  type        = string
+  default     = ""
+}
+
+variable "store_manifest_lambda_arn" {
+  description = "Lambda ARN for claims manifest storage step"
+  type        = string
+  default     = ""
+}
+
+variable "forecast_lambda_arn" {
+  description = "Lambda ARN for provider claims forecasting step"
+  type        = string
+  default     = ""
+}

@@ -50,3 +50,11 @@ desired_count   = 1
 # ── ECR ───────────────────────────────────────────────────────────────────────
 ecr_image_tag_mutability = "MUTABLE"
 image_tag                = "latest"
+
+# ── Claims pipeline (optional) ───────────────────────────────────────────────
+# Set enable_claims_pipeline=true only after you deploy the four lambda functions.
+enable_claims_pipeline    = false
+generate_lambda_arn       = "arn:aws:lambda:us-east-1:123456789012:function:synthetic_fhir_claims"
+clean_lambda_arn          = "arn:aws:lambda:us-east-1:123456789012:function:claims_cleaner"
+store_manifest_lambda_arn = "arn:aws:lambda:us-east-1:123456789012:function:claims_store_manifest"
+forecast_lambda_arn       = "arn:aws:lambda:us-east-1:123456789012:function:claims_forecast"

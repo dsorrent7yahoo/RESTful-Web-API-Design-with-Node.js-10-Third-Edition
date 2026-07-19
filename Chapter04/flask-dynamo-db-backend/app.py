@@ -18,6 +18,7 @@ from routes.auth import auth_bp
 from routes.upload import upload_bp
 from routes.export import export_bp
 from routes.claims import claims_bp
+from routes.claims_pipeline import claims_pipeline_bp
 from routes.sqs_results import sqs_bp
 from routes.glue_upload import glue_upload_bp
 from routes.source import source_bp
@@ -58,6 +59,7 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(export_bp)
 app.register_blueprint(glue_upload_bp)
 app.register_blueprint(claims_bp)
+app.register_blueprint(claims_pipeline_bp)
 app.register_blueprint(sqs_bp)
 app.register_blueprint(source_bp)
 app.register_blueprint(athena_bp)
@@ -107,5 +109,3 @@ if __name__ == "__main__":
     _ensure_glue_staging_bucket()
     port = int(os.getenv("PORT", "4001"))
     app.run(host="0.0.0.0", port=port)
-
-

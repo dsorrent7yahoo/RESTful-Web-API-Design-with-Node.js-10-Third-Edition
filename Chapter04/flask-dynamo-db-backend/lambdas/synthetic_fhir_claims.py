@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 synthetic_fhir_claims.py
 Generates 100 synthetic FHIR R4 Claim records as CSV and writes to S3.
@@ -142,6 +143,7 @@ def _generate_claims():
 def lambda_handler(event, context):
     request_id = getattr(context, "aws_request_id", "local")
     cold_start  = mark_warm()
+    session_id = (event or {}).get("session_id")
 
     with LambdaTimer(log, "synthetic_fhir_claims", request_id):
         log.info("generating claims",
@@ -174,6 +176,9 @@ def lambda_handler(event, context):
         result = {
             "statusCode":        200,
             "lambda":            "synthetic_fhir_claims",
+            "step":              "generate_synthetic_claims",
+            "step_status":       "SUCCEEDED",
+            "session_id":        session_id,
             "bucket":            BUCKET,
             "key":               s3_key,
             "filename":          s3_key.split("/")[-1],
@@ -191,7 +196,7 @@ def lambda_handler(event, context):
                     "lambda": {"StringValue": "synthetic_fhir_claims", "DataType": "String"},
                 },
             )
-            log.info("SQS message sent", extra={"queue": SQS_QUEUE_URL})
+            log.info("SQS message sent", extra={"queue": SQS_QUEUE_URL, "session_id": session_id})
         except Exception:
             log.warning("SQS publish failed", exc_info=True)
 

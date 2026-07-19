@@ -43,8 +43,15 @@ locals {
   ecs_service_name = "${var.name_prefix}-service"
   ecs_family_name  = "${var.name_prefix}-task"
 
+  effective_container_environment = merge(
+    var.container_environment,
+    var.enable_claims_pipeline ? {
+      CLAIMS_PIPELINE_STATE_MACHINE_ARN = aws_sfn_state_machine.claims_pipeline[0].arn
+    } : {}
+  )
+
   container_environment_list = [
-    for k, v in var.container_environment : { name = k, value = v }
+    for k, v in local.effective_container_environment : { name = k, value = v }
   ]
 
   container_secrets_list = [

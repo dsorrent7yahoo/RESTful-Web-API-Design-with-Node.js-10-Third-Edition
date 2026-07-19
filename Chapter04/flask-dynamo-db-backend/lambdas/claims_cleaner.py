@@ -1,3 +1,4 @@
+# Databricks notebook source
 """
 claims_cleaner.py
 Cleans a claims CSV from S3, writes Parquet (Snappy), registers in Glue, publishes to SQS.
@@ -212,6 +213,7 @@ def _register_glue(bucket, parquet_prefix, request_id):
 def lambda_handler(event, context):
     request_id = getattr(context, "aws_request_id", "local")
     cold_start  = mark_warm()
+    session_id = (event or {}).get("session_id")
 
     with LambdaTimer(log, "claims_cleaner", request_id):
         log.info("invoked",
@@ -252,6 +254,9 @@ def lambda_handler(event, context):
         result = {
             "statusCode":     200,
             "lambda":         "claims_cleaner",
+            "step":           "clean_claims",
+            "step_status":    "SUCCEEDED",
+            "session_id":     session_id,
             "source_key":     key,
             "bucket":         bucket,
             "key":            parquet_key,
@@ -271,10 +276,10 @@ def lambda_handler(event, context):
                     "lambda": {"StringValue": "claims_cleaner", "DataType": "String"},
                 },
             )
-            log.info("SQS message sent", extra={"request_id": request_id})
+            log.info("SQS message sent", extra={"request_id": request_id, "session_id": session_id})
         except Exception:
             log.warning("SQS publish failed", exc_info=True,
-                        extra={"request_id": request_id})
+                        extra={"request_id": request_id, "session_id": session_id})
 
         return result
 

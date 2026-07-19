@@ -1,0 +1,30 @@
+{
+  "Comment": "Claims pipeline: generate -> clean -> store manifest -> forecast by provider",
+  "StartAt": "GenerateSyntheticClaims",
+  "States": {
+    "GenerateSyntheticClaims": {
+      "Type": "Task",
+      "Resource": "${generate_lambda_arn}",
+      "ResultPath": "$",
+      "Next": "CleanClaims"
+    },
+    "CleanClaims": {
+      "Type": "Task",
+      "Resource": "${clean_lambda_arn}",
+      "ResultPath": "$",
+      "Next": "StoreClaimsManifest"
+    },
+    "StoreClaimsManifest": {
+      "Type": "Task",
+      "Resource": "${store_manifest_lambda_arn}",
+      "ResultPath": "$",
+      "Next": "ForecastClaimsByProvider"
+    },
+    "ForecastClaimsByProvider": {
+      "Type": "Task",
+      "Resource": "${forecast_lambda_arn}",
+      "ResultPath": "$",
+      "End": true
+    }
+  }
+}

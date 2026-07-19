@@ -21,6 +21,7 @@ import GlueCatalogUploader from './GlueCatalogUploader';
 import ClaimsGenerator from './ClaimsGenerator';
 import SQSMonitor from './SQSMonitor';
 import AthenaClient from './AthenaClient';
+import ClaimsPipelineModal from './ClaimsPipelineModal';
 
 // ---------------------------------------------------------------------------
 // API options — medications (same routes as Node backend) + Flask-specific
@@ -119,7 +120,8 @@ const TABLE_COLUMNS = [
 // True when the page is served from a remote host (Fargate or any non-localhost)
 const IS_FARGATE = !['localhost', '127.0.0.1'].includes(window.location.hostname);
 // Allow explicit API base URL override for deployed environments.
-const DEPLOYED_FLASK_ORIGIN = (import.meta.env.VITE_FLASK_API_URL || window.location.origin)
+const DEFAULT_DEPLOYED_FLASK_ORIGIN = 'http://sorrentino-fargate-fhir-demo-alb-1996236158.us-east-1.elb.amazonaws.com';
+const DEPLOYED_FLASK_ORIGIN = (import.meta.env.VITE_FLASK_API_URL || DEFAULT_DEPLOYED_FLASK_ORIGIN)
   .trim()
   .replace(/\/$/, '');
 
@@ -230,14 +232,15 @@ function defaultBodyFor(id) {
 // Component
 // ---------------------------------------------------------------------------
 export default function App() {
+  const useAwsByDefault = Boolean(import.meta.env.VITE_FLASK_API_URL) || window.location.hostname === 'localhost';
   const [authToken, setAuthToken]               = useState(() => localStorage.getItem('healthCareToken') || '');
   const [loginEmail, setLoginEmail]             = useState('react-dgs@yahoo.com');
   const [loginPassword, setLoginPassword]       = useState('python');
   const [loginStatus, setLoginStatus]           = useState('');
   const [loginLoading, setLoginLoading]         = useState(false);
 
-  const [baseUrl, setBaseUrl]                   = useState(IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline);
-  const [backendMode, setBackendMode]           = useState(IS_FARGATE ? 'aws' : 'cmdline');
+  const [baseUrl, setBaseUrl]                   = useState(useAwsByDefault ? BACKEND_PRESETS.aws : (IS_FARGATE ? BACKEND_PRESETS.aws : BACKEND_PRESETS.cmdline));
+  const [backendMode, setBackendMode]           = useState(useAwsByDefault ? 'aws' : (IS_FARGATE ? 'aws' : 'cmdline'));
   const [loginMode, setLoginMode]               = useState(() => localStorage.getItem('healthCareSSOMode') || null);
   const [selectedId, setSelectedId]             = useState('getAll');
   const [medicationId, setMedicationId]         = useState('');
@@ -302,6 +305,7 @@ export default function App() {
   const [showGlueModal, setShowGlueModal]     = useState(false);
   const [showClaimsModal, setShowClaimsModal] = useState(false);
   const [showClaimsViewModal, setShowClaimsViewModal] = useState(false);
+  const [showClaimsPipelineModal, setShowClaimsPipelineModal] = useState(false);
   const [showSQSModal, setShowSQSModal]       = useState(false);
   const [showAthenaModal, setShowAthenaModal] = useState(false);
   const [quickGenerating, setQuickGenerating] = useState(false);
@@ -1110,6 +1114,12 @@ export default function App() {
               🗄️ claims_clean_&amp;_glue_catalog_lambda
             </button>
             <button type="button"
+              onClick={() => setShowClaimsPipelineModal(true)}
+              style={{ background: 'linear-gradient(135deg,#4c1d95,#7c3aed)', color: '#ddd6fe', border: '1px solid #8b5cf6',
+                borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
+              📈 claims_pipeline_session
+            </button>
+            <button type="button"
               onClick={() => setShowSQSModal(true)}
               style={{ background: 'linear-gradient(135deg,#0f4c81,#1a73e8)', color: '#fff', border: 'none',
                 borderRadius: '6px', padding: '5px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>
@@ -1521,6 +1531,14 @@ export default function App() {
       <AthenaClient
         show={showAthenaModal} onClose={() => setShowAthenaModal(false)}
         baseUrl={baseUrl} authToken={authToken}
+      />
+
+      {/* Claims pipeline session monitor */}
+      <ClaimsPipelineModal
+        show={showClaimsPipelineModal}
+        onClose={() => setShowClaimsPipelineModal(false)}
+        baseUrl={baseUrl}
+        authToken={authToken}
       />
 
       {/* Source Browser */}

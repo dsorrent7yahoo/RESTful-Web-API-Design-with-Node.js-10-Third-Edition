@@ -52,3 +52,13 @@ output "cloudwatch_alarm_task_running_zero" {
   description = "CloudWatch alarm name — triggers when running task count drops to zero"
   value       = aws_cloudwatch_metric_alarm.task_running_zero.alarm_name
 }
+
+output "claims_pipeline_state_machine_arn" {
+  description = "Step Functions state machine ARN for claims pipeline (null when disabled)"
+  value       = try(aws_sfn_state_machine.claims_pipeline[0].arn, null)
+}
+
+output "claims_pipeline_log_group" {
+  description = "CloudWatch log group for claims pipeline Step Functions execution logs (null when disabled)"
+  value       = try(aws_cloudwatch_log_group.claims_pipeline_sfn[0].name, null)
+}
