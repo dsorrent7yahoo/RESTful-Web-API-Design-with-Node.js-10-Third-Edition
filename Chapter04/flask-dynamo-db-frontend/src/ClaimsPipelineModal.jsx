@@ -11,6 +11,16 @@ function statusColor(status) {
   return '#64748b';
 }
 
+function prettyStepLabel(step) {
+  const labels = {
+    generate_synthetic_claims: 'Generate Claims',
+    clean_claims: 'Clean Claims',
+    store_claims_manifest: 'Store Manifest',
+    forecast_claims: 'Forecast Claims',
+  };
+  return labels[step] || step || 'event';
+}
+
 function makeSeries(provider) {
   const hist = Array.isArray(provider?.history) ? provider.history : [];
   const fc = Array.isArray(provider?.forecast) ? provider.forecast : [];
@@ -278,9 +288,11 @@ export default function ClaimsPipelineModal({ show, onClose, baseUrl, authToken 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '190px', overflowY: 'auto' }}>
                 {events.map((evt, idx) => (
                   <div key={`${evt.sentAt || idx}-${idx}`} style={{ fontSize: '12px', color: '#334155', borderBottom: '1px dashed #e2e8f0', paddingBottom: '4px' }}>
-                    <strong style={{ color: '#0f766e' }}>{evt.step || evt.lambda || 'event'}</strong>
+                    <strong style={{ color: '#0f766e' }}>{prettyStepLabel(evt.step || evt.lambda)}</strong>
                     {' - '}
                     <span style={{ color: statusColor(evt.step_status) }}>{evt.step_status || 'UNKNOWN'}</span>
+                    {evt.result?.filename ? ` - ${evt.result.filename}` : ''}
+                    {evt.result?.rows_written != null ? ` - rows ${evt.result.rows_written}` : ''}
                     {evt.sentAt ? ` - ${new Date(evt.sentAt).toLocaleString()}` : ''}
                   </div>
                 ))}

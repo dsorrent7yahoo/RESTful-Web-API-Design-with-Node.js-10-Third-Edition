@@ -100,7 +100,7 @@ jobs:
         id: build
         env:
           REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}
         run: |
           docker build \
             -f Chapter04/flask-dynamo-db-backend/Dockerfile \
@@ -173,3 +173,11 @@ jobs:
           service: ${{ env.ECS_SERVICE }}
           cluster: ${{ env.ECS_CLUSTER }}
           wait-for-service-stability: true
+
+      - name: Force ECS to roll fresh tasks on the new image
+        run: |
+          aws ecs update-service \
+            --cluster "${{ env.ECS_CLUSTER }}" \
+            --service "${{ env.ECS_SERVICE }}" \
+            --force-new-deployment \
+            --desired-count 1 > /dev/null
