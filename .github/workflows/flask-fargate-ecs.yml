@@ -91,7 +91,6 @@ jobs:
 
       - name: Validate AWS credentials (build)
         run: aws sts get-caller-identity
-
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -150,7 +149,6 @@ jobs:
             --cluster "${{ env.ECS_CLUSTER }}" \
             --service "${{ env.ECS_SERVICE }}" \
             --desired-count 1 > /dev/null
-
       - name: Fetch current task definition from ECS
         run: |
           aws ecs describe-task-definition \
